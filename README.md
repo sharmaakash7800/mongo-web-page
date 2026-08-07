@@ -7,9 +7,9 @@ Welcome! This application connects your **MongoDB Atlas database (`R2D`)** direc
 ## 📁 Project Structure
 
 - `server.js` - Express backend server with MongoDB Mongoose schemas & REST APIs.
-- `public/index.html` - Premium interactive web dashboard UI.
-- `public/style.css` - Custom dark mode CSS with glassmorphism & responsive grid.
-- `public/app.js` - Frontend logic for sending & fetching live data to/from MongoDB Atlas.
+- `index.html` / `public/index.html` - Premium interactive web dashboard UI.
+- `style.css` / `public/style.css` - Custom dark mode CSS with glassmorphism & responsive grid.
+- `app.js` / `public/app.js` - Dynamic frontend logic supporting auto-detection of backend API & GitHub Pages hosting.
 - `.env` - Environment variables (MongoDB connection string & port).
 - `.gitignore` - Prevents uploading `.env` and `node_modules` to GitHub.
 
@@ -21,36 +21,29 @@ Welcome! This application connects your **MongoDB Atlas database (`R2D`)** direc
 1. Open [cloud.mongodb.com](https://cloud.mongodb.com) and log into your Atlas account.
 2. Click **Connect** on `Cluster0` -> choose **Drivers** (Node.js).
 3. Copy the URI string (looks like `mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/R2D?retryWrites=true&w=majority`).
-4. Open `.env` file in this folder and replace `MONGODB_URI` with your actual connection string.
+4. Open `.env` file in this folder and verify `MONGODB_URI`.
 
-### Step 2: Install Node.js & Run Locally
-1. Download & Install [Node.js](https://nodejs.org/).
-2. Open terminal/command prompt in this directory (`mongo db test`).
-3. Run:
+### Step 2: Run Backend Server Locally
+1. Open terminal/command prompt in this directory (`mongo db test`).
+2. Run:
    ```bash
    npm install
    npm start
    ```
-4. Open your browser at: `http://localhost:3000`
+3. Open your browser at: `http://localhost:3000`
 
 ---
 
-## 🌐 Upload to GitHub & Host Online (Render / Vercel)
+## 🌐 Using with GitHub Pages (`sharmaakash7800.github.io/mongo_web_page/`)
 
-### Push to GitHub:
-```bash
-git init
-git add .
-git commit -m "Initial MongoDB Web Application"
-git branch -M main
-git remote add origin <your-github-repo-url>
-git push -u origin main
-```
+GitHub Pages hosts static HTML/JS files. Since GitHub Pages does not run Node.js backend servers natively:
 
-### Host for free on Render.com:
-1. Sign up at [Render.com](https://render.com).
-2. Click **New Web Service** -> Connect your GitHub repository.
-3. Build Command: `npm install`
-4. Start Command: `node server.js`
-5. In **Environment Variables**, add `MONGODB_URI` = your connection string.
-6. Click **Deploy**! Your web app will now be live on the internet!
+1. **Option A: Connect GitHub Pages to your Local Machine**
+   - Keep `npm start` running locally on your computer (`http://localhost:3000`).
+   - Open your GitHub Pages site (`sharmaakash7800.github.io/mongo_web_page/`).
+   - The web page will auto-detect and connect to `http://localhost:3000`, fetching live data directly from MongoDB Atlas!
+   - You can also click **"Server URL"** in the top bar to set or test `http://localhost:3000`.
+
+2. **Option B: Host Backend Cloud API (Render / Railway / Vercel)**
+   - Deploy `server.js` for free on Render.com or Railway.
+   - Click **"Server URL"** on your GitHub Pages dashboard and enter your backend service URL (e.g. `https://your-api.onrender.com`).

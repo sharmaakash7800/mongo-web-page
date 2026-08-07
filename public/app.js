@@ -2,11 +2,8 @@
 let activeTab = 'inventory';
 let activeData = [];
 let dbConnected = false;
-
-// Dynamic API Base URL (if on GitHub Pages, default to http://localhost:3000)
-const API_BASE_URL = window.location.hostname.includes('github.io') || window.location.protocol === 'file:' 
-  ? 'http://localhost:3000' 
-  : '';
+let customApiUrl = localStorage.getItem('custom_api_url') || '';
+let resolvedApiUrl = customApiUrl;
 
 // DOM Elements
 const pageTitle = document.getElementById('pageTitle');
@@ -20,12 +17,17 @@ const searchInput = document.getElementById('searchInput');
 
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
+const statusSub = document.getElementById('statusSub');
 const connectionWarning = document.getElementById('connectionWarning');
+const warningBannerText = document.getElementById('warningBannerText');
 
 const recordModal = document.getElementById('recordModal');
 const modalTitle = document.getElementById('modalTitle');
 const modalFormFields = document.getElementById('modalFormFields');
 const recordForm = document.getElementById('recordForm');
+
+const serverModal = document.getElementById('serverModal');
+const inputServerUrl = document.getElementById('inputServerUrl');
 
 // Metrics Elements
 const countInventory = document.getElementById('countInventory');
@@ -35,11 +37,8 @@ const countRequests = document.getElementById('countRequests');
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
   setupNavigation();
-  checkSystemStatus();
-  loadMetrics();
-  loadTabData(activeTab);
+  initApp();
 
   // Auto refresh system status & metrics every 15s
   setInterval(() => {
@@ -48,36 +47,64 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 15000);
 });
 
-// Theme Management (Dark / Day Mode)
-function initTheme() {
-  const themeToggle = document.getElementById('themeToggle');
-  const themeIcon = document.getElementById('themeIcon');
-  const themeText = document.getElementById('themeText');
-
-  const savedTheme = localStorage.getItem('app_theme') || 'dark';
-  applyTheme(savedTheme);
-
-  themeToggle.addEventListener('click', () => {
-    const isLight = document.body.classList.contains('light-theme');
-    const newTheme = isLight ? 'dark' : 'light';
-    applyTheme(newTheme);
-    localStorage.setItem('app_theme', newTheme);
-  });
-
-  function applyTheme(theme) {
-    if (theme === 'light') {
-      document.body.classList.add('light-theme');
-      themeIcon.className = 'fa-solid fa-moon';
-      themeText.textContent = 'Dark Mode';
-    } else {
-      document.body.classList.remove('light-theme');
-      themeIcon.className = 'fa-solid fa-sun';
-      themeText.textContent = 'Day Mode';
-    }
-  }
+async function initApp() {
+  await determineApiUrl();
+  await checkSystemStatus();
+  await loadMetrics();
+  await loadTabData(activeTab);
 }
 
-// Navigation & Tab Switching
+// ----------------------------------------------------
+// API BASE URL RESOLUTION
+// ----------------------------------------------------
+async function determineApiUrl() {
+  if (customApiUrl) {
+    resolvedApiUrl = customApiUrl.replace(/\/$/, '');
+    return resolvedApiUrl;
+  }
+
+  // 1. Try relative path '/api/status'
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch('/api/status', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      resolvedApiUrl = '';
+      return '';
+    }
+  } catch (e) {
+    // Relative fetch failed
+  }
+
+  // 2. If hosted on GitHub Pages or non-localhost, check if local server http://localhost:3000 is available
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const resLocal = await fetch('http://localhost:3000/api/status', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (resLocal.ok) {
+        resolvedApiUrl = 'http://localhost:3000';
+        return resolvedApiUrl;
+      }
+    } catch (e) {
+      // Localhost backend unreachable
+    }
+  }
+
+  resolvedApiUrl = '';
+  return '';
+}
+
+function getApiEndpoint(path) {
+  if (!resolvedApiUrl) return path;
+  return `${resolvedApiUrl}${path}`;
+}
+
+// ----------------------------------------------------
+// NAVIGATION & EVENT LISTENERS
+// ----------------------------------------------------
 function setupNavigation() {
   document.querySelectorAll('.nav-item').forEach(button => {
     button.addEventListener('click', (e) => {
@@ -90,9 +117,10 @@ function setupNavigation() {
     });
   });
 
-  document.getElementById('btnRefresh').addEventListener('click', () => {
-    loadMetrics();
-    loadTabData(activeTab);
+  document.getElementById('btnRefresh').addEventListener('click', async () => {
+    await checkSystemStatus();
+    await loadMetrics();
+    await loadTabData(activeTab);
     showToast('Data refreshed from MongoDB Atlas', 'success');
   });
 
@@ -121,40 +149,75 @@ function updateTabHeader() {
 // SYSTEM STATUS & METRICS
 // ----------------------------------------------------
 async function checkSystemStatus() {
+  // If opened directly via file:// protocol
+  if (window.location.protocol === 'file:') {
+    statusDot.className = 'status-indicator offline';
+    statusText.textContent = 'Backend Not Started';
+    if (statusSub) statusSub.textContent = 'File Protocol (file://)';
+    connectionWarning.classList.remove('hidden');
+    if (warningBannerText) {
+      warningBannerText.innerHTML = `
+        <strong>Server Not Running:</strong> You opened <code>index.html</code> directly as a local file. To connect with MongoDB Atlas live, run <code>npm start</code> in terminal and open <strong>http://localhost:3000</strong>.
+      `;
+    }
+    return;
+  }
+
+  await determineApiUrl();
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/status`);
+    const res = await fetch(getApiEndpoint('/api/status'));
     const data = await res.json();
     dbConnected = data.connected;
 
     if (data.connected) {
       statusDot.className = 'status-indicator online';
       statusText.textContent = 'MongoDB Atlas Connected';
+      if (statusSub) {
+        statusSub.textContent = resolvedApiUrl ? `Server: ${resolvedApiUrl}` : 'Database: R2D';
+      }
       connectionWarning.classList.add('hidden');
     } else {
       statusDot.className = 'status-indicator offline';
       statusText.textContent = 'URI Password Required';
+      if (statusSub) statusSub.textContent = 'Database: Disconnected';
       connectionWarning.classList.remove('hidden');
+      if (warningBannerText) {
+        warningBannerText.innerHTML = `
+          <strong>MongoDB Atlas URI Setup Needed:</strong> 
+          Your <code>.env</code> file needs your MongoDB connection string password. Update <code>MONGODB_URI</code> in <code>.env</code> with your cluster password to sync live data!
+        `;
+      }
     }
   } catch (err) {
     statusDot.className = 'status-indicator offline';
-    statusText.textContent = 'Server Offline (Run npm start)';
+    statusText.textContent = 'Server Offline';
+    if (statusSub) statusSub.textContent = 'Database: Unreachable';
     connectionWarning.classList.remove('hidden');
-    connectionWarning.innerHTML = `
-      <div class="banner-icon"><i class="fa-solid fa-circle-info"></i></div>
-      <div class="banner-text">
-        <strong>Backend Connection Notice:</strong> Make sure your local server is running (<code>npm start</code>) or host backend on Render.com.
-      </div>
-    `;
+
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    if (warningBannerText) {
+      if (isGitHubPages) {
+        warningBannerText.innerHTML = `
+          <strong>Backend Offline (GitHub Pages Static Host):</strong> 
+          GitHub Pages hosts static files only. To connect to live MongoDB Atlas, run <code>npm start</code> on your computer (listening at <code>http://localhost:3000</code>) or set your deployed API URL.
+        `;
+      } else {
+        warningBannerText.innerHTML = `
+          <strong>Backend Server Offline:</strong> The Express API server is not responding. Run <code>npm start</code> in terminal to start the server.
+        `;
+      }
+    }
   }
 }
 
 async function loadMetrics() {
   try {
     const [inv, ord, del, req] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/inventory`).then(r => r.json()),
-      fetch(`${API_BASE_URL}/api/purchase-orders`).then(r => r.json()),
-      fetch(`${API_BASE_URL}/api/deliveries`).then(r => r.json()),
-      fetch(`${API_BASE_URL}/api/purchase-requests`).then(r => r.json())
+      fetch(getApiEndpoint('/api/inventory')).then(r => r.json()),
+      fetch(getApiEndpoint('/api/purchase-orders')).then(r => r.json()),
+      fetch(getApiEndpoint('/api/deliveries')).then(r => r.json()),
+      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json())
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;
@@ -170,9 +233,15 @@ async function loadMetrics() {
 // LOAD TAB DATA FROM MONGODB API
 // ----------------------------------------------------
 async function loadTabData(tab) {
-  tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; color: var(--text-muted);">
+  tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: var(--text-muted);">
     <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Fetching from MongoDB Atlas...</td></tr>`;
   emptyState.classList.add('hidden');
+
+  // Fallback sample data if opened directly via file:// protocol
+  if (window.location.protocol === 'file:') {
+    loadSampleDataFallback(tab);
+    return;
+  }
 
   const endpointMap = {
     inventory: '/api/inventory',
@@ -182,7 +251,7 @@ async function loadTabData(tab) {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}${endpointMap[tab]}`);
+    const res = await fetch(getApiEndpoint(endpointMap[tab]));
     const json = await res.json();
 
     if (json.success) {
@@ -192,9 +261,46 @@ async function loadTabData(tab) {
       showToast(json.error || 'Failed to fetch data', 'error');
     }
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--accent-orange); padding:30px;">
-      Backend server is offline. Run <code>npm start</code> locally or host backend online.</td></tr>`;
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px;">
+      <div style="max-width: 520px; margin: 0 auto; background: var(--bg-card); padding: 25px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <i class="fa-solid fa-plug-circle-xmark fa-3x" style="color: var(--accent-orange); margin-bottom: 15px;"></i>
+        <h4 style="color: var(--text-primary); font-size: 17px; margin-bottom: 8px;">Backend API Server Offline</h4>
+        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
+          ${isGitHubPages 
+            ? 'GitHub Pages is hosting static frontend files. To view and write live data to MongoDB Atlas, start <code>node server.js</code> locally on your PC or enter your deployed server URL.' 
+            : 'Unable to connect to Express backend server. Please verify that <code>npm start</code> is running.'}
+        </p>
+        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-primary btn-sm" onclick="connectLocalhostAndRetry()"><i class="fa-solid fa-plug"></i> Connect Localhost:3000</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleServerModal(true)"><i class="fa-solid fa-sliders"></i> Set Backend URL</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSampleDataFallback('${tab}')"><i class="fa-solid fa-eye"></i> View Sample Demo</button>
+        </div>
+      </div>
+    </td></tr>`;
   }
+}
+
+function loadSampleDataFallback(tab) {
+  const sampleData = {
+    inventory: [
+      { _id: '1', itemName: 'Sample Laptop', category: 'Electronics', quantity: 15, unitPrice: 899.99, location: 'Warehouse A', status: 'In Stock' },
+      { _id: '2', itemName: 'Office Chair', category: 'Furniture', quantity: 5, unitPrice: 149.50, location: 'Warehouse B', status: 'In Stock' }
+    ],
+    orders: [
+      { _id: '1', orderNumber: 'PO-2026-001', supplier: 'TechCorp Supplies', totalAmount: 4500.00, itemsCount: 12, status: 'Completed' }
+    ],
+    deliveries: [
+      { _id: '1', trackingNumber: 'TRK-987654', carrier: 'FedEx Express', destination: 'Main Hub', estimatedArrival: 'Tomorrow', status: 'In Transit' }
+    ],
+    requests: [
+      { _id: '1', title: 'New Test Request', requestedBy: 'Akash', department: 'IT', priority: 'High', estimatedCost: 500.00, status: 'Under Review' }
+    ]
+  };
+  
+  activeData = sampleData[tab] || [];
+  renderTable(activeData);
+  showToast('Loaded sample demo data (Server offline)', 'error');
 }
 
 // ----------------------------------------------------
@@ -468,7 +574,7 @@ async function handleFormSubmit(e) {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}${endpointMap[activeTab]}`, {
+    const res = await fetch(getApiEndpoint(endpointMap[activeTab]), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -502,7 +608,7 @@ async function deleteRecord(id) {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}${endpointMap[activeTab]}/${id}`, {
+    const res = await fetch(getApiEndpoint(`${endpointMap[activeTab]}/${id}`), {
       method: 'DELETE'
     });
     const result = await res.json();
@@ -516,6 +622,57 @@ async function deleteRecord(id) {
   } catch (err) {
     showToast('Error deleting record', 'error');
   }
+}
+
+// ----------------------------------------------------
+// SERVER MODAL & CONFIGURATION HANDLERS
+// ----------------------------------------------------
+function toggleServerModal(show) {
+  if (show) {
+    inputServerUrl.value = customApiUrl || resolvedApiUrl || 'http://localhost:3000';
+    serverModal.classList.remove('hidden');
+  } else {
+    serverModal.classList.add('hidden');
+  }
+}
+
+async function saveServerUrl() {
+  const newUrl = inputServerUrl.value.trim().replace(/\/$/, '');
+  customApiUrl = newUrl;
+  localStorage.setItem('custom_api_url', newUrl);
+  resolvedApiUrl = newUrl;
+  toggleServerModal(false);
+  showToast('Server URL updated! Testing connection...', 'success');
+  await checkSystemStatus();
+  await loadMetrics();
+  await loadTabData(activeTab);
+}
+
+async function useLocalhostServer() {
+  inputServerUrl.value = 'http://localhost:3000';
+  await saveServerUrl();
+}
+
+async function clearServerUrl() {
+  customApiUrl = '';
+  localStorage.removeItem('custom_api_url');
+  inputServerUrl.value = '';
+  await determineApiUrl();
+  toggleServerModal(false);
+  showToast('Reset server URL to auto-detect', 'success');
+  await checkSystemStatus();
+  await loadMetrics();
+  await loadTabData(activeTab);
+}
+
+async function connectLocalhostAndRetry() {
+  customApiUrl = 'http://localhost:3000';
+  localStorage.setItem('custom_api_url', customApiUrl);
+  resolvedApiUrl = customApiUrl;
+  showToast('Connecting to http://localhost:3000...', 'success');
+  await checkSystemStatus();
+  await loadMetrics();
+  await loadTabData(activeTab);
 }
 
 // ----------------------------------------------------

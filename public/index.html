@@ -65,8 +65,8 @@
           <p class="subtitle" id="pageSubtitle">Write & Fetch data live from MongoDB Atlas database: <strong>R2D</strong></p>
         </div>
         <div class="topbar-right">
-          <button class="btn btn-outline" id="themeToggle">
-            <i class="fa-solid fa-sun" id="themeIcon"></i> <span id="themeText">Day Mode</span>
+          <button class="btn btn-outline" id="btnServerConfig" onclick="toggleServerModal(true)" title="Configure Backend Server URL">
+            <i class="fa-solid fa-server"></i> Server URL
           </button>
           <button class="btn btn-outline" id="btnRefresh">
             <i class="fa-solid fa-rotate-right"></i> Refresh Data
@@ -77,10 +77,10 @@
         </div>
       </header>
 
-      <!-- Connection Warning Banner (Shown if .env not setup) -->
+      <!-- Connection Warning Banner -->
       <div class="banner warning-banner hidden" id="connectionWarning">
         <div class="banner-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-        <div class="banner-text">
+        <div class="banner-text" id="warningBannerText">
           <strong>MongoDB Atlas URI Setup Needed:</strong> 
           Your <code>.env</code> file needs your MongoDB connection string. Update <code>MONGODB_URI</code> in <code>.env</code> with your database password to sync live data!
         </div>
@@ -177,6 +177,42 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- SERVER CONFIGURATION MODAL -->
+  <div class="modal-overlay hidden" id="serverModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-server"></i> Configure Backend Server URL</h3>
+        <button class="modal-close" onclick="toggleServerModal(false)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 15px; color: var(--text-secondary); line-height: 1.5;">
+          GitHub Pages hosts static web pages. To connect with live MongoDB Atlas data, specify your Express backend server URL (local or hosted on Render/Vercel).
+        </p>
+        <div class="form-group">
+          <label style="display:block; margin-bottom: 6px; font-weight:600;">Backend Server Base URL</label>
+          <input type="text" id="inputServerUrl" class="form-control" placeholder="http://localhost:3000 or https://my-app.onrender.com">
+          <small style="color: var(--text-muted); display: block; margin-top: 6px;">
+            Default local backend server: <code>http://localhost:3000</code>
+          </small>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="button" class="btn btn-outline" style="flex:1" onclick="useLocalhostServer()">
+            <i class="fa-solid fa-laptop"></i> Use Localhost:3000
+          </button>
+          <button type="button" class="btn btn-outline" style="flex:1" onclick="clearServerUrl()">
+            <i class="fa-solid fa-rotate-left"></i> Reset Default
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="toggleServerModal(false)">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveServerUrl()">
+          <i class="fa-solid fa-check"></i> Save & Connect
+        </button>
+      </div>
     </div>
   </div>
 

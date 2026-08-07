@@ -28,33 +28,6 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* --- LIGHT THEME OVERRIDES --- */
-body.light-theme {
-  --bg-dark: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-sidebar: #ffffff;
-  --border-color: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-body.light-theme .form-control {
-  background-color: #f8fafc;
-  color: #0f172a;
-}
-
-body.light-theme .form-control option {
-  background-color: #ffffff;
-  color: #0f172a;
-}
-
-body.light-theme .data-table th {
-  background-color: #f1f5f9;
-}
-
 /* --- BASE STYLES --- */
 * {
   margin: 0;
