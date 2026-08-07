@@ -5,11 +5,13 @@ const dotenv = require('dotenv');
 const path = require('path');
 const dns = require('dns');
 
-// Configure DNS fallback for MongoDB Atlas SRV lookup
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {
-  console.log('DNS setServers notice:', e.message);
+// Configure DNS fallback for local environment
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+  } catch (e) {
+    console.log('DNS setServers notice:', e.message);
+  }
 }
 
 dotenv.config();
@@ -22,30 +24,49 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// MongoDB Atlas Connection
-const MONGODB_URI = process.env.MONGODB_URI;
+// Serverless-friendly MongoDB Atlas Connection Handler
+let connPromise = null;
 
-let isConnected = false;
-
-function connectDB() {
-  if (MONGODB_URI && !MONGODB_URI.includes('<username>')) {
-    mongoose.connect(MONGODB_URI)
-      .then(() => {
-        isConnected = true;
-        console.log('✅ Successfully connected to MongoDB Atlas (R2D Database)');
-      })
-      .catch((err) => {
-        isConnected = false;
-        console.error('⚠️ MongoDB Connection Error:', err.message);
-        console.log('🔄 Retrying connection in 5 seconds...');
-        setTimeout(connectDB, 5000);
-      });
-  } else {
-    console.log('ℹ️ Notice: MONGODB_URI in .env contains placeholders. Please update .env with your actual connection string.');
+async function ensureDbConnected() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI || MONGODB_URI.includes('<username>')) {
+    return false;
   }
+
+  if (mongoose.connection.readyState === 1) {
+    return true;
+  }
+
+  if (!connPromise) {
+    connPromise = mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 8000
+    }).then(() => {
+      console.log('✅ Successfully connected to MongoDB Atlas (R2D Database)');
+      return true;
+    }).catch(err => {
+      connPromise = null;
+      console.error('⚠️ MongoDB Connection Error:', err.message);
+      return false;
+    });
+  }
+
+  return await connPromise;
 }
 
-connectDB();
+// Middleware to ensure DB connection before handling API routes
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    await ensureDbConnected();
+  }
+  next();
+});
+
+function checkDbStatus() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+  const isConnected = mongoose.connection.readyState === 1;
+  const uriSet = Boolean(MONGODB_URI && !MONGODB_URI.includes('<username>'));
+  return { isConnected, uriSet };
+}
 
 // ----------------------------------------------------
 // MONGOOSE SCHEMAS & MODELS (Matching R2D Database)
@@ -105,16 +126,18 @@ const PurchaseRequest = mongoose.model('purchase_requests', purchaseRequestSchem
 
 // System Status Endpoint
 app.get('/api/status', (req, res) => {
+  const { isConnected, uriSet } = checkDbStatus();
   res.json({
     connected: isConnected,
     dbName: 'R2D',
-    uriSet: MONGODB_URI && !MONGODB_URI.includes('<username>')
+    uriSet: uriSet
   });
 });
 
 // --- INVENTORY API ---
 app.get('/api/inventory', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.json({ success: true, data: [], dbConnected: false, message: 'URI setup required' });
     }
@@ -127,8 +150,9 @@ app.get('/api/inventory', async (req, res) => {
 
 app.post('/api/inventory', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'Please update your .env file with your actual MongoDB Atlas connection password first!' });
+      return res.status(400).json({ success: false, error: 'Please update your .env file or Vercel Environment Variables with your actual MongoDB Atlas connection password!' });
     }
     const newItem = new Inventory(req.body);
     const saved = await newItem.save();
@@ -140,6 +164,7 @@ app.post('/api/inventory', async (req, res) => {
 
 app.delete('/api/inventory/:id', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.status(400).json({ success: false, error: 'MongoDB Atlas is not connected yet.' });
     }
@@ -153,6 +178,7 @@ app.delete('/api/inventory/:id', async (req, res) => {
 // --- PURCHASE ORDERS API ---
 app.get('/api/purchase-orders', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.json({ success: true, data: [], dbConnected: false });
     }
@@ -165,8 +191,9 @@ app.get('/api/purchase-orders', async (req, res) => {
 
 app.post('/api/purchase-orders', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'Please update your .env file with your actual MongoDB Atlas connection password first!' });
+      return res.status(400).json({ success: false, error: 'Please update your .env file or Vercel Environment Variables with your actual MongoDB Atlas connection password!' });
     }
     const newOrder = new PurchaseOrder(req.body);
     const saved = await newOrder.save();
@@ -178,6 +205,7 @@ app.post('/api/purchase-orders', async (req, res) => {
 
 app.delete('/api/purchase-orders/:id', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.status(400).json({ success: false, error: 'MongoDB Atlas is not connected yet.' });
     }
@@ -191,6 +219,7 @@ app.delete('/api/purchase-orders/:id', async (req, res) => {
 // --- DELIVERIES API ---
 app.get('/api/deliveries', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.json({ success: true, data: [], dbConnected: false });
     }
@@ -203,8 +232,9 @@ app.get('/api/deliveries', async (req, res) => {
 
 app.post('/api/deliveries', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'Please update your .env file with your actual MongoDB Atlas connection password first!' });
+      return res.status(400).json({ success: false, error: 'Please update your .env file or Vercel Environment Variables with your actual MongoDB Atlas connection password!' });
     }
     const newDelivery = new Delivery(req.body);
     const saved = await newDelivery.save();
@@ -216,6 +246,7 @@ app.post('/api/deliveries', async (req, res) => {
 
 app.delete('/api/deliveries/:id', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.status(400).json({ success: false, error: 'MongoDB Atlas is not connected yet.' });
     }
@@ -229,6 +260,7 @@ app.delete('/api/deliveries/:id', async (req, res) => {
 // --- PURCHASE REQUESTS API ---
 app.get('/api/purchase-requests', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.json({ success: true, data: [], dbConnected: false });
     }
@@ -241,8 +273,9 @@ app.get('/api/purchase-requests', async (req, res) => {
 
 app.post('/api/purchase-requests', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'Please update your .env file with your actual MongoDB Atlas connection password first!' });
+      return res.status(400).json({ success: false, error: 'Please update your .env file or Vercel Environment Variables with your actual MongoDB Atlas connection password!' });
     }
     const newRequest = new PurchaseRequest(req.body);
     const saved = await newRequest.save();
@@ -254,6 +287,7 @@ app.post('/api/purchase-requests', async (req, res) => {
 
 app.delete('/api/purchase-requests/:id', async (req, res) => {
   try {
+    const { isConnected } = checkDbStatus();
     if (!isConnected) {
       return res.status(400).json({ success: false, error: 'MongoDB Atlas is not connected yet.' });
     }
