@@ -3,6 +3,11 @@ let activeTab = 'inventory';
 let activeData = [];
 let dbConnected = false;
 
+// Dynamic API Base URL (if on GitHub Pages, default to http://localhost:3000)
+const API_BASE_URL = window.location.hostname.includes('github.io') || window.location.protocol === 'file:' 
+  ? 'http://localhost:3000' 
+  : '';
+
 // DOM Elements
 const pageTitle = document.getElementById('pageTitle');
 const pageSubtitle = document.getElementById('pageSubtitle');
@@ -86,23 +91,8 @@ function updateTabHeader() {
 // SYSTEM STATUS & METRICS
 // ----------------------------------------------------
 async function checkSystemStatus() {
-  // If opened directly via file:// protocol
-  if (window.location.protocol === 'file:') {
-    statusDot.className = 'status-indicator offline';
-    statusText.textContent = 'Backend Not Started';
-    connectionWarning.classList.remove('hidden');
-    connectionWarning.innerHTML = `
-      <div class="banner-icon"><i class="fa-solid fa-circle-info"></i></div>
-      <div class="banner-text">
-        <strong>Server Not Running:</strong> You opened <code>index.html</code> directly as a local file. To connect with MongoDB Atlas live, run <code>npm start</code> in terminal and open <strong>http://localhost:3000</strong>.
-      </div>
-      <button class="btn-sm btn-ghost" onclick="toggleSetupModal(true)">View Setup Guide</button>
-    `;
-    return;
-  }
-
   try {
-    const res = await fetch('/api/status');
+    const res = await fetch(`${API_BASE_URL}/api/status`);
     const data = await res.json();
     dbConnected = data.connected;
 
@@ -117,17 +107,24 @@ async function checkSystemStatus() {
     }
   } catch (err) {
     statusDot.className = 'status-indicator offline';
-    statusText.textContent = 'Server Offline';
+    statusText.textContent = 'Server Offline (Run npm start)';
+    connectionWarning.classList.remove('hidden');
+    connectionWarning.innerHTML = `
+      <div class="banner-icon"><i class="fa-solid fa-circle-info"></i></div>
+      <div class="banner-text">
+        <strong>Backend Connection Notice:</strong> Make sure your local server is running (<code>npm start</code>) or host backend on Render.com.
+      </div>
+    `;
   }
 }
 
 async function loadMetrics() {
   try {
     const [inv, ord, del, req] = await Promise.all([
-      fetch('/api/inventory').then(r => r.json()),
-      fetch('/api/purchase-orders').then(r => r.json()),
-      fetch('/api/deliveries').then(r => r.json()),
-      fetch('/api/purchase-requests').then(r => r.json())
+      fetch(`${API_BASE_URL}/api/inventory`).then(r => r.json()),
+      fetch(`${API_BASE_URL}/api/purchase-orders`).then(r => r.json()),
+      fetch(`${API_BASE_URL}/api/deliveries`).then(r => r.json()),
+      fetch(`${API_BASE_URL}/api/purchase-requests`).then(r => r.json())
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;
@@ -147,29 +144,6 @@ async function loadTabData(tab) {
     <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Fetching from MongoDB Atlas...</td></tr>`;
   emptyState.classList.add('hidden');
 
-  // Fallback sample data if opened directly via file:// protocol
-  if (window.location.protocol === 'file:') {
-    const sampleData = {
-      inventory: [
-        { _id: '1', itemName: 'Sample Laptop', category: 'Electronics', quantity: 15, unitPrice: 899.99, location: 'Warehouse A', status: 'In Stock' },
-        { _id: '2', itemName: 'Office Chair', category: 'Furniture', quantity: 5, unitPrice: 149.50, location: 'Warehouse B', status: 'In Stock' }
-      ],
-      orders: [
-        { _id: '1', orderNumber: 'PO-2026-001', supplier: 'TechCorp Supplies', totalAmount: 4500.00, itemsCount: 12, status: 'Completed' }
-      ],
-      deliveries: [
-        { _id: '1', trackingNumber: 'TRK-987654', carrier: 'FedEx Express', destination: 'Main Hub', estimatedArrival: 'Tomorrow', status: 'In Transit' }
-      ],
-      requests: [
-        { _id: '1', title: 'New Test Request', requestedBy: 'Akash', department: 'IT', priority: 'High', estimatedCost: 500.00, status: 'Under Review' }
-      ]
-    };
-    
-    activeData = sampleData[tab] || [];
-    renderTable(activeData);
-    return;
-  }
-
   const endpointMap = {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
@@ -178,7 +152,7 @@ async function loadTabData(tab) {
   };
 
   try {
-    const res = await fetch(endpointMap[tab]);
+    const res = await fetch(`${API_BASE_URL}${endpointMap[tab]}`);
     const json = await res.json();
 
     if (json.success) {
@@ -189,7 +163,7 @@ async function loadTabData(tab) {
     }
   } catch (err) {
     tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--accent-orange); padding:30px;">
-      Error fetching data. Check server logs.</td></tr>`;
+      Backend server is offline. Run <code>npm start</code> locally or host backend online.</td></tr>`;
   }
 }
 
@@ -464,7 +438,7 @@ async function handleFormSubmit(e) {
   };
 
   try {
-    const res = await fetch(endpointMap[activeTab], {
+    const res = await fetch(`${API_BASE_URL}${endpointMap[activeTab]}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -498,7 +472,7 @@ async function deleteRecord(id) {
   };
 
   try {
-    const res = await fetch(`${endpointMap[activeTab]}/${id}`, {
+    const res = await fetch(`${API_BASE_URL}${endpointMap[activeTab]}/${id}`, {
       method: 'DELETE'
     });
     const result = await res.json();
