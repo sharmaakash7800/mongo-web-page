@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R2D Business Management - MongoDB Atlas Connected</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <!-- Main Container -->
+  <div class="app-container">
+    
+    <!-- Sidebar / Brand Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-database"></i>
+        </div>
+        <div class="brand-text">
+          <h2>R2D Portal</h2>
+          <span class="sub-text">MongoDB Connected</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="inventory" id="tab-btn-inventory">
+          <i class="fa-solid fa-boxes-stacked"></i> Inventory
+        </button>
+        <button class="nav-item" data-tab="orders" id="tab-btn-orders">
+          <i class="fa-solid fa-file-invoice-dollar"></i> Purchase Orders
+        </button>
+        <button class="nav-item" data-tab="deliveries" id="tab-btn-deliveries">
+          <i class="fa-solid fa-truck-fast"></i> Deliveries
+        </button>
+        <button class="nav-item" data-tab="requests" id="tab-btn-requests">
+          <i class="fa-solid fa-clipboard-list"></i> Purchase Requests
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="db-status-card" id="dbStatusBadge">
+          <div class="status-indicator offline" id="statusDot"></div>
+          <div class="status-info">
+            <span class="status-title" id="statusText">Checking Connection...</span>
+            <span class="status-subtitle" id="statusSub">Database: R2D</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 id="pageTitle">Inventory Management</h1>
+          <p class="subtitle" id="pageSubtitle">Write & Fetch data live from MongoDB Atlas database: <strong>R2D</strong></p>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-outline" id="btnRefresh">
+            <i class="fa-solid fa-rotate-right"></i> Refresh Data
+          </button>
+          <button class="btn btn-primary" id="btnOpenModal">
+            <i class="fa-solid fa-plus"></i> Add New Record
+          </button>
+        </div>
+      </header>
+
+      <!-- Connection Warning Banner (Shown if .env not setup) -->
+      <div class="banner warning-banner hidden" id="connectionWarning">
+        <div class="banner-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="banner-text">
+          <strong>MongoDB Atlas URI Setup Needed:</strong> 
+          Your <code>.env</code> file needs your MongoDB connection string. Update <code>MONGODB_URI</code> in <code>.env</code> with your database password to sync live data!
+        </div>
+        <button class="btn-sm btn-ghost" onclick="toggleSetupModal(true)">View Instructions</button>
+      </div>
+
+      <!-- Stats Metrics Cards -->
+      <section class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon green"><i class="fa-solid fa-box"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">Total Inventory</span>
+            <h3 class="metric-value" id="countInventory">0</h3>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon blue"><i class="fa-solid fa-receipt"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">Purchase Orders</span>
+            <h3 class="metric-value" id="countOrders">0</h3>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon purple"><i class="fa-solid fa-truck"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">Active Deliveries</span>
+            <h3 class="metric-value" id="countDeliveries">0</h3>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon orange"><i class="fa-solid fa-list-check"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">Purchase Requests</span>
+            <h3 class="metric-value" id="countRequests">0</h3>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data Section with Toolbar -->
+      <section class="data-container">
+        
+        <div class="table-toolbar">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Search records in MongoDB Atlas...">
+          </div>
+          <div class="toolbar-info">
+            <span id="recordCountLabel">Showing 0 records</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Data Table -->
+        <div class="table-responsive">
+          <table class="data-table" id="dataTable">
+            <thead id="tableHeader">
+              <!-- Dynamically Populated Header -->
+            </thead>
+            <tbody id="tableBody">
+              <!-- Dynamically Populated Rows -->
+            </tbody>
+          </table>
+          <div class="empty-state hidden" id="emptyState">
+            <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+            <h3>No Records Found</h3>
+            <p>Click "Add New Record" to write data directly into your MongoDB database.</p>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ADD RECORD MODAL -->
+  <div class="modal-overlay hidden" id="recordModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New Inventory Item</h3>
+        <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="recordForm">
+        <div class="modal-body" id="modalFormFields">
+          <!-- Dynamic Form Fields injected by app.js depending on active tab -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitForm">
+            <i class="fa-solid fa-floppy-disk"></i> Save to MongoDB
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SETUP INSTRUCTIONS MODAL -->
+  <div class="modal-overlay hidden" id="setupModal">
+    <div class="modal-card large">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-key"></i> Connect MongoDB Atlas Step-by-Step</h3>
+        <button class="modal-close" onclick="toggleSetupModal(false)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body setup-guide">
+        <ol class="guide-steps">
+          <li>
+            <strong>Go to MongoDB Atlas:</strong> Open <a href="https://cloud.mongodb.com" target="_blank">cloud.mongodb.com</a> and click on your cluster (Cluster0).
+          </li>
+          <li>
+            <strong>Click "Connect":</strong> Select <em>Drivers</em> (Node.js).
+          </li>
+          <li>
+            <strong>Copy your Connection String:</strong> It looks like: <br>
+            <code>mongodb+srv://&lt;username&gt;:&lt;password&gt;@cluster0.xxxxx.mongodb.net/R2D?retryWrites=true&w=majority</code>
+          </li>
+          <li>
+            <strong>Paste into <code>.env</code> file:</strong> Replace <code>&lt;username&gt;</code> and <code>&lt;password&gt;</code> with your database user credentials.
+          </li>
+          <li>
+            <strong>Save & Restart:</strong> Restart your server (<code>npm start</code>) and refresh this webpage!
+          </li>
+        </ol>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="toggleSetupModal(false)">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast hidden" id="toast">
+    <i class="fa-solid fa-circle-check" id="toastIcon"></i>
+    <span id="toastMessage">Action completed</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
