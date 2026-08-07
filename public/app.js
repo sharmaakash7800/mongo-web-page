@@ -35,6 +35,7 @@ const countRequests = document.getElementById('countRequests');
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   setupNavigation();
   checkSystemStatus();
   loadMetrics();
@@ -46,6 +47,35 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMetrics();
   }, 15000);
 });
+
+// Theme Management (Dark / Day Mode)
+function initTheme() {
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeText = document.getElementById('themeText');
+
+  const savedTheme = localStorage.getItem('app_theme') || 'dark';
+  applyTheme(savedTheme);
+
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.body.classList.contains('light-theme');
+    const newTheme = isLight ? 'dark' : 'light';
+    applyTheme(newTheme);
+    localStorage.setItem('app_theme', newTheme);
+  });
+
+  function applyTheme(theme) {
+    if (theme === 'light') {
+      document.body.classList.add('light-theme');
+      themeIcon.className = 'fa-solid fa-moon';
+      themeText.textContent = 'Dark Mode';
+    } else {
+      document.body.classList.remove('light-theme');
+      themeIcon.className = 'fa-solid fa-sun';
+      themeText.textContent = 'Day Mode';
+    }
+  }
+}
 
 // Navigation & Tab Switching
 function setupNavigation() {
