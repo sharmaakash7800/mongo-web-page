@@ -63,7 +63,6 @@ const VERCEL_BACKEND_URL = 'https://mongo-web-page.vercel.app';
 // API BASE URL RESOLUTION
 // ----------------------------------------------------
 async function determineApiUrl() {
-  // Clear any leftover localhost customApiUrl saved on mobile browsers
   if (customApiUrl && customApiUrl.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     customApiUrl = '';
     localStorage.removeItem('custom_api_url');
@@ -74,42 +73,16 @@ async function determineApiUrl() {
     return resolvedApiUrl;
   }
 
-  // 1. Try relative path '/api/status' (when served from same server)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1200);
-    const res = await fetch('/api/status', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      resolvedApiUrl = '';
-      return '';
-    }
-  } catch (e) {}
+  // GitHub Pages or external hosts: Always default to live Vercel Cloud Backend!
+  if (window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) {
+    resolvedApiUrl = VERCEL_BACKEND_URL;
+    return VERCEL_BACKEND_URL;
+  }
 
-  // 2. Default to live Vercel Cloud Backend on GitHub Pages / Mobile
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    const resVercel = await fetch(`${VERCEL_BACKEND_URL}/api/status`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (resVercel.ok) {
-      resolvedApiUrl = VERCEL_BACKEND_URL;
-      return VERCEL_BACKEND_URL;
-    }
-  } catch (e) {}
-
-  // 3. Fallback to Localhost:3000
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const resLocal = await fetch('http://localhost:3000/api/status', { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (resLocal.ok) {
-        resolvedApiUrl = 'http://localhost:3000';
-        return resolvedApiUrl;
-      }
-    } catch (e) {}
+  // Local development host
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    resolvedApiUrl = '';
+    return '';
   }
 
   resolvedApiUrl = VERCEL_BACKEND_URL;
