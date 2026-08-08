@@ -56,7 +56,7 @@ async function initApp() {
   await loadTabData(activeTab);
 }
 
-const VERCEL_BACKEND_URL = 'https://mongo-web-page-d646gmavi-bussiness-team.vercel.app';
+const VERCEL_BACKEND_URL = 'https://mongo-web-page.vercel.app';
 
 // ----------------------------------------------------
 // API BASE URL RESOLUTION

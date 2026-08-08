@@ -28,9 +28,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 let connPromise = null;
 
 async function ensureDbConnected() {
-  const MONGODB_URI = process.env.MONGODB_URI;
+  let MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI || MONGODB_URI.includes('<username>')) {
-    return false;
+    MONGODB_URI = "mongodb+srv://mis_db_user:Akash12345@cluster0.cmnpteg.mongodb.net/R2D?retryWrites=true&w=majority";
   }
 
   if (mongoose.connection.readyState === 1) {
@@ -38,14 +38,12 @@ async function ensureDbConnected() {
   }
 
   if (!connPromise) {
-    connPromise = mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 8000
-    }).then(() => {
-      console.log('✅ Successfully connected to MongoDB Atlas (R2D Database)');
+    connPromise = mongoose.connect(MONGODB_URI).then(() => {
+      console.log('MongoDB connected successfully');
       return true;
     }).catch(err => {
+      console.error('MongoDB connection error:', err);
       connPromise = null;
-      console.error('⚠️ MongoDB Connection Error:', err.message);
       return false;
     });
   }
@@ -62,9 +60,12 @@ app.use(async (req, res, next) => {
 });
 
 function checkDbStatus() {
-  const MONGODB_URI = process.env.MONGODB_URI;
+  let MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI || MONGODB_URI.includes('<username>')) {
+    MONGODB_URI = "mongodb+srv://mis_db_user:Akash12345@cluster0.cmnpteg.mongodb.net/R2D?retryWrites=true&w=majority";
+  }
   const isConnected = mongoose.connection.readyState === 1;
-  const uriSet = Boolean(MONGODB_URI && !MONGODB_URI.includes('<username>'));
+  const uriSet = Boolean(MONGODB_URI);
   return { isConnected, uriSet };
 }
 
