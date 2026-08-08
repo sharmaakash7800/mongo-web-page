@@ -359,6 +359,45 @@ function loadSampleDataFallback(tab) {
 }
 
 // ----------------------------------------------------
+// TAT & DOER HELPERS
+// ----------------------------------------------------
+function getTATBadgeHtml(createdAt) {
+  if (!createdAt) return `<span class="badge badge-info" title="TAT Clock"><i class="fa-solid fa-stopwatch"></i> TAT: 10m</span>`;
+  const start = new Date(createdAt).getTime();
+  const now = new Date().getTime();
+  const diffMs = Math.max(0, now - start);
+
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  let label = '';
+  if (diffDays > 0) {
+    label = `${diffDays}d ${diffHours % 24}h`;
+  } else if (diffHours > 0) {
+    label = `${diffHours}h ${diffMins % 60}m`;
+  } else {
+    label = `${diffMins}m`;
+  }
+
+  let badgeClass = 'badge-success';
+  if (diffHours >= 48) {
+    badgeClass = 'badge-danger';
+    label += ' (Overdue)';
+  } else if (diffHours >= 24) {
+    badgeClass = 'badge-warning';
+  }
+
+  return `<span class="badge ${badgeClass}" title="Turnaround Time (Creation to now)"><i class="fa-solid fa-stopwatch"></i> TAT: ${label}</span>`;
+}
+
+function getDoerBadgeHtml(item) {
+  const doer = item.lastDoer || 'Requester';
+  const role = item.doerRole ? ` (${item.doerRole})` : '';
+  return `<span class="doer-pill" title="Last Doer: ${escapeHtml(doer)}${role}"><i class="fa-solid fa-user-gear"></i> ${escapeHtml(doer)}</span>`;
+}
+
+// ----------------------------------------------------
 // RENDER TABLE DYNAMICALLY
 // ----------------------------------------------------
 function renderTable(data) {
@@ -381,11 +420,10 @@ function renderTable(data) {
         <th>Item Name</th>
         <th>Category</th>
         <th>Quantity</th>
-        <th>Unit Price</th>
-        <th>Location</th>
-        <th>Status</th>
-        <th>Approval</th>
-        <th>Actions</th>
+        <th>Unit Price (₹)</th>
+        <th>Doer</th>
+        <th>TAT</th>
+        <th>Approval Workflow</th>
       </tr>
     `;
 
@@ -395,11 +433,10 @@ function renderTable(data) {
         <td><strong>${escapeHtml(item.itemName)}</strong></td>
         <td><span class="badge badge-info">${escapeHtml(item.category)}</span></td>
         <td>${item.quantity} units</td>
-        <td>$${Number(item.unitPrice).toFixed(2)}</td>
-        <td>${escapeHtml(item.location)}</td>
-        <td><span class="badge ${item.quantity > 0 ? 'badge-success' : 'badge-danger'}">${escapeHtml(item.status)}</span></td>
-        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
-        <td>${getApprovalActionButtons(item._id)}</td>
+        <td><strong>₹${Number(item.unitPrice).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -407,13 +444,13 @@ function renderTable(data) {
   } else if (activeTab === 'orders') {
     tableHeader.innerHTML = `
       <tr>
-        <th>Order Number</th>
+        <th>Order #</th>
         <th>Supplier</th>
-        <th>Total Amount</th>
-        <th>Items Count</th>
-        <th>Status</th>
-        <th>Approval</th>
-        <th>Actions</th>
+        <th>Total Amount (₹)</th>
+        <th>Items</th>
+        <th>Doer</th>
+        <th>TAT</th>
+        <th>Approval Workflow</th>
       </tr>
     `;
 
@@ -422,11 +459,11 @@ function renderTable(data) {
       tr.innerHTML = `
         <td><strong>${escapeHtml(item.orderNumber)}</strong></td>
         <td>${escapeHtml(item.supplier)}</td>
-        <td>$${Number(item.totalAmount).toFixed(2)}</td>
+        <td><strong>₹${Number(item.totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${item.itemsCount}</td>
-        <td><span class="badge ${item.status === 'Completed' ? 'badge-success' : 'badge-warning'}">${escapeHtml(item.status)}</span></td>
-        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
-        <td>${getApprovalActionButtons(item._id)}</td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -438,9 +475,9 @@ function renderTable(data) {
         <th>Carrier</th>
         <th>Destination</th>
         <th>Est. Arrival</th>
-        <th>Status</th>
-        <th>Approval</th>
-        <th>Actions</th>
+        <th>Doer</th>
+        <th>TAT</th>
+        <th>Approval Workflow</th>
       </tr>
     `;
 
@@ -451,9 +488,9 @@ function renderTable(data) {
         <td>${escapeHtml(item.carrier)}</td>
         <td>${escapeHtml(item.destination)}</td>
         <td>${escapeHtml(item.estimatedArrival)}</td>
-        <td><span class="badge badge-info">${escapeHtml(item.status)}</span></td>
-        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
-        <td>${getApprovalActionButtons(item._id)}</td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -465,10 +502,10 @@ function renderTable(data) {
         <th>Requested By</th>
         <th>Department</th>
         <th>Priority</th>
-        <th>Est. Cost</th>
-        <th>Status</th>
-        <th>Approval</th>
-        <th>Actions</th>
+        <th>Est. Cost (₹)</th>
+        <th>Doer</th>
+        <th>TAT</th>
+        <th>Workflow Action</th>
       </tr>
     `;
 
@@ -480,10 +517,10 @@ function renderTable(data) {
         <td>${escapeHtml(item.requestedBy)}</td>
         <td>${escapeHtml(item.department)}</td>
         <td><span class="badge ${priorityClass}">${escapeHtml(item.priority)}</span></td>
-        <td>$${Number(item.estimatedCost).toFixed(2)}</td>
-        <td><span class="badge badge-info">${escapeHtml(item.status)}</span></td>
-        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
-        <td>${getApprovalActionButtons(item._id)}</td>
+        <td><strong>₹${Number(item.estimatedCost).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -524,8 +561,8 @@ function openRecordModal() {
         <input type="number" name="quantity" class="form-control" value="10" required min="0">
       </div>
       <div class="form-group">
-        <label>Unit Price ($)</label>
-        <input type="number" step="0.01" name="unitPrice" class="form-control" value="25.00">
+        <label>Unit Price (₹)</label>
+        <input type="number" step="0.01" name="unitPrice" class="form-control" value="2500.00">
       </div>
       <div class="form-group">
         <label>Location</label>
@@ -544,8 +581,8 @@ function openRecordModal() {
         <input type="text" name="supplier" class="form-control" placeholder="e.g. Acme Tech Solutions" required>
       </div>
       <div class="form-group">
-        <label>Total Amount ($) *</label>
-        <input type="number" step="0.01" name="totalAmount" class="form-control" value="150.00" required>
+        <label>Total Amount (₹) *</label>
+        <input type="number" step="0.01" name="totalAmount" class="form-control" value="15000.00" required>
       </div>
       <div class="form-group">
         <label>Items Count</label>
@@ -612,8 +649,8 @@ function openRecordModal() {
         </select>
       </div>
       <div class="form-group">
-        <label>Estimated Cost ($)</label>
-        <input type="number" step="0.01" name="estimatedCost" class="form-control" value="300.00">
+        <label>Estimated Cost (₹)</label>
+        <input type="number" step="0.01" name="estimatedCost" class="form-control" value="30000.00">
       </div>
     `;
   }
@@ -688,42 +725,71 @@ async function deleteRecord(id) {
 }
 
 // ----------------------------------------------------
-// APPROVAL WORKFLOW HANDLERS
+// MULTI-STAGE APPROVAL WORKFLOW HANDLERS
 // ----------------------------------------------------
 function getApprovalBadgeHtml(status) {
-  const s = status || 'Pending Store Check';
-  if (s === 'Approved by Head') {
-    return `<span class="badge badge-success" title="Approved by Head"><i class="fa-solid fa-user-check"></i> Head Approved</span>`;
-  } else if (s === 'Store Checked') {
-    return `<span class="badge badge-info" title="Verified by Store"><i class="fa-solid fa-store"></i> Store Verified</span>`;
-  } else if (s === 'Rejected') {
-    return `<span class="badge badge-danger" title="Rejected"><i class="fa-solid fa-ban"></i> Rejected</span>`;
+  const s = status || 'Pending HoD Approval';
+  if (s === 'Approved by HoD' || s === 'HoD Approved (Pending Store)') {
+    return `<span class="badge badge-info" title="Approved by Department Head"><i class="fa-solid fa-user-check"></i> HoD Approved</span>`;
+  } else if (s === 'Dispatched') {
+    return `<span class="badge badge-success" title="Store Stock Available & Dispatched"><i class="fa-solid fa-truck-ramp-box"></i> Dispatched</span>`;
+  } else if (s === 'Sent to Purchase Team') {
+    return `<span class="badge badge-warning" title="Out of Stock - Sent to Procurement"><i class="fa-solid fa-cart-shopping"></i> Purchase Team</span>`;
+  } else if (s.includes('Rejected')) {
+    return `<span class="badge badge-danger" title="Request Rejected"><i class="fa-solid fa-ban"></i> Rejected</span>`;
   } else {
-    return `<span class="badge badge-warning" title="Pending Store Check"><i class="fa-solid fa-clock"></i> Store Pending</span>`;
+    return `<span class="badge badge-warning" title="Awaiting Department Head Approval"><i class="fa-solid fa-user-clock"></i> Pending HoD</span>`;
   }
 }
 
-function getApprovalActionButtons(id) {
-  return `
-    <div style="display: flex; gap: 4px; align-items: center;">
-      <button class="action-btn store-btn" onclick="updateApproval('${id}', 'Store Checked')" title="Store Check (Verify)"><i class="fa-solid fa-store"></i></button>
-      <button class="action-btn approve-btn" onclick="updateApproval('${id}', 'Approved by Head')" title="Head Approve"><i class="fa-solid fa-circle-check"></i></button>
-      <button class="action-btn reject-btn" onclick="updateApproval('${id}', 'Rejected')" title="Reject"><i class="fa-solid fa-circle-xmark"></i></button>
-      <button class="action-btn delete-btn" onclick="deleteRecord('${id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button>
-    </div>
-  `;
+function getApprovalActionButtons(item) {
+  const id = item._id;
+  const status = item.approvalStatus || 'Pending HoD Approval';
+
+  let buttons = '';
+
+  // Stage 1: Pending HoD Approval
+  if (status === 'Pending HoD Approval' || status === 'Pending Store Check') {
+    buttons += `<button class="btn-wf btn-wf-hod" onclick="updateApproval('${id}', 'HoD Approved (Pending Store)', 'HoD')" title="Approve as Head of Department"><i class="fa-solid fa-user-check"></i> HoD Approve</button>`;
+    buttons += `<button class="btn-wf btn-wf-reject" onclick="updateApproval('${id}', 'Rejected by HoD', 'HoD')" title="Reject Request"><i class="fa-solid fa-xmark"></i> Reject</button>`;
+  } 
+  // Stage 2: HoD Approved -> Store Check
+  else if (status === 'HoD Approved (Pending Store)' || status === 'Approved by Head' || status === 'Store Checked') {
+    buttons += `<button class="btn-wf btn-wf-dispatch" onclick="updateApproval('${id}', 'Dispatched', 'Store Manager')" title="Stock Available -> Dispatch Item"><i class="fa-solid fa-boxes-packing"></i> Dispatch (In Stock)</button>`;
+    buttons += `<button class="btn-wf btn-wf-purchase" onclick="updateApproval('${id}', 'Sent to Purchase Team', 'Store Manager')" title="Out of Stock -> Forward to Purchase Team"><i class="fa-solid fa-cart-shopping"></i> Send to Purchase (Out of Stock)</button>`;
+  }
+  // Completed / Forwarded stages
+  else if (status === 'Dispatched') {
+    buttons += `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Dispatched</span>`;
+  } else if (status === 'Sent to Purchase Team') {
+    buttons += `<span class="badge badge-warning"><i class="fa-solid fa-spinner fa-spin"></i> Sent to Purchase</span>`;
+  } else if (status.includes('Rejected')) {
+    buttons += `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Rejected</span>`;
+  }
+
+  // Delete button
+  buttons += `<button class="action-btn delete-btn" onclick="deleteRecord('${id}')" title="Delete Record"><i class="fa-solid fa-trash"></i></button>`;
+
+  return `<div class="workflow-actions">${buttons}</div>`;
 }
 
-async function updateApproval(id, newStatus) {
+async function updateApproval(id, newStatus, defaultRole) {
+  const doerName = prompt(`Enter Doer / User Name for "${newStatus}":`, defaultRole || 'Admin');
+  if (doerName === null) return; // User cancelled prompt
+
   try {
     const res = await fetch(getApiEndpoint(`/api/approval/${activeTab}/${id}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ approvalStatus: newStatus })
+      body: JSON.stringify({
+        approvalStatus: newStatus,
+        lastDoer: doerName.trim() || defaultRole || 'User',
+        doerRole: defaultRole || 'Staff'
+      })
     });
     const result = await res.json();
     if (result.success) {
-      showToast(`Status updated to "${newStatus}"`, 'success');
+      showToast(`Status updated to "${newStatus}" by ${doerName}!`, 'success');
       loadMetrics();
       loadTabData(activeTab);
     } else {

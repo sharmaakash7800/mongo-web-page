@@ -76,7 +76,9 @@ const inventorySchema = new mongoose.Schema({
   unitPrice: { type: Number, default: 0 },
   location: { type: String, default: 'Main Warehouse' },
   status: { type: String, default: 'In Stock' },
-  approvalStatus: { type: String, default: 'Pending Store Check' }
+  approvalStatus: { type: String, default: 'Pending HoD Approval' },
+  lastDoer: { type: String, default: 'Store Staff' },
+  doerRole: { type: String, default: 'Store Staff' }
 }, { timestamps: true });
 
 const Inventory = mongoose.model('inventory', inventorySchema, 'inventory');
@@ -89,7 +91,9 @@ const purchaseOrderSchema = new mongoose.Schema({
   status: { type: String, default: 'Pending' },
   itemsCount: { type: Number, default: 1 },
   notes: { type: String, default: '' },
-  approvalStatus: { type: String, default: 'Pending Store Check' }
+  approvalStatus: { type: String, default: 'Pending HoD Approval' },
+  lastDoer: { type: String, default: 'Procurement Officer' },
+  doerRole: { type: String, default: 'Purchase Team' }
 }, { timestamps: true });
 
 const PurchaseOrder = mongoose.model('purchase_orders', purchaseOrderSchema, 'purchase_orders');
@@ -101,7 +105,9 @@ const deliverySchema = new mongoose.Schema({
   destination: { type: String, required: true },
   status: { type: String, default: 'In Transit' },
   estimatedArrival: { type: String, default: 'Pending' },
-  approvalStatus: { type: String, default: 'Pending Store Check' }
+  approvalStatus: { type: String, default: 'Pending HoD Approval' },
+  lastDoer: { type: String, default: 'Logistics Supervisor' },
+  doerRole: { type: String, default: 'Logistics' }
 }, { timestamps: true });
 
 const Delivery = mongoose.model('deliveries', deliverySchema, 'deliveries');
@@ -114,7 +120,9 @@ const purchaseRequestSchema = new mongoose.Schema({
   priority: { type: String, default: 'Medium' },
   estimatedCost: { type: Number, default: 0 },
   status: { type: String, default: 'Under Review' },
-  approvalStatus: { type: String, default: 'Pending Store Check' }
+  approvalStatus: { type: String, default: 'Pending HoD Approval' },
+  lastDoer: { type: String, default: 'Requester' },
+  doerRole: { type: String, default: 'Requester' }
 }, { timestamps: true });
 
 const PurchaseRequest = mongoose.model('purchase_requests', purchaseRequestSchema, 'purchase_requests');
@@ -285,7 +293,7 @@ app.post('/api/purchase-requests', async (req, res) => {
   }
 });
 
-// --- STORE CHECK & HEAD APPROVAL WORKFLOW API ---
+// --- MULTI-STAGE APPROVAL WORKFLOW API ---
 app.put('/api/approval/:collection/:id', async (req, res) => {
   try {
     const { isConnected } = checkDbStatus();
@@ -305,11 +313,37 @@ app.put('/api/approval/:collection/:id', async (req, res) => {
     const Model = collectionMap[req.params.collection];
     if (!Model) return res.status(400).json({ success: false, error: 'Invalid collection' });
 
+    const updateFields = {
+      approvalStatus: req.body.approvalStatus
+    };
+    if (req.body.lastDoer) updateFields.lastDoer = req.body.lastDoer;
+    if (req.body.doerRole) updateFields.doerRole = req.body.doerRole;
+
     const updated = await Model.findByIdAndUpdate(
       req.params.id,
-      { approvalStatus: req.body.approvalStatus },
+      updateFields,
       { new: true }
     );
+
+    // If stock is not available and forwarded to Purchase Team, auto-create a Purchase Order record!
+    if (req.body.approvalStatus === 'Sent to Purchase Team') {
+      try {
+        const itemTitle = updated.title || updated.itemName || 'Requested Item';
+        const cost = updated.estimatedCost || updated.unitPrice || 0;
+        await PurchaseOrder.create({
+          orderNumber: `PO-${Math.floor(1000 + Math.random() * 9000)}`,
+          supplier: `Purchase Team (Auto-Request: ${itemTitle})`,
+          totalAmount: cost,
+          itemsCount: 1,
+          status: 'Pending',
+          approvalStatus: 'Pending HoD Approval',
+          lastDoer: 'Store Manager (Out of Stock)',
+          doerRole: 'Store Staff'
+        });
+      } catch (e) {
+        console.error('Auto PO Creation Notice:', e.message);
+      }
+    }
 
     res.json({ success: true, data: updated, message: `Status updated to ${req.body.approvalStatus}` });
   } catch (err) {
