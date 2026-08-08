@@ -28,6 +28,22 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* --- LIGHT MODE THEME OVERRIDES --- */
+[data-theme="light"] {
+  --bg-dark: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --border-color: #e2e8f0;
+  --border-highlight: #2563eb;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
 /* --- BASE STYLES --- */
 * {
   margin: 0;
@@ -688,4 +704,61 @@ body {
 /* UTILITY CLASSES */
 .hidden {
   display: none !important;
+}
+
+/* LIGHT MODE COMPONENT STYLES */
+[data-theme="light"] .form-control {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="light"] .form-control option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="light"] .search-box {
+  background-color: #f8fafc;
+}
+
+[data-theme="light"] .nav-item:hover {
+  background-color: #f1f5f9;
+}
+
+[data-theme="light"] .db-status-card {
+  background-color: #f8fafc;
+}
+
+[data-theme="light"] .modal-overlay {
+  background-color: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] .modal-footer {
+  background-color: #f8fafc;
+}
+
+[data-theme="light"] .toast {
+  background-color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  color: #0f172a;
+}
+
+[data-theme="light"] .banner-text code {
+  background: rgba(0, 0, 0, 0.06);
+  color: #92400e;
+}
+
+[data-theme="light"] .warning-banner {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+[data-theme="light"] .data-table th {
+  background-color: #f8fafc;
+}
+
+[data-theme="light"] .data-table tbody tr:hover {
+  background-color: #f8fafc;
 }

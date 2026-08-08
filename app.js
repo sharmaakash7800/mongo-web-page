@@ -4,6 +4,7 @@ let activeData = [];
 let dbConnected = false;
 let customApiUrl = localStorage.getItem('custom_api_url') || '';
 let resolvedApiUrl = customApiUrl;
+let currentTheme = localStorage.getItem('theme') || 'dark';
 
 // DOM Elements
 const pageTitle = document.getElementById('pageTitle');
@@ -37,6 +38,7 @@ const countRequests = document.getElementById('countRequests');
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   setupNavigation();
   initApp();
 
@@ -706,4 +708,36 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ----------------------------------------------------
+// DAY / NIGHT THEME TOGGLE HANDLERS
+// ----------------------------------------------------
+function initTheme() {
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  updateThemeUI();
+}
+
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', currentTheme);
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  updateThemeUI();
+  showToast(`Switched to ${currentTheme === 'light' ? 'Day' : 'Night'} Mode`, 'success');
+}
+
+function updateThemeUI() {
+  const themeIcon = document.getElementById('themeIcon');
+  const themeLabel = document.getElementById('themeLabel');
+  if (!themeIcon || !themeLabel) return;
+
+  if (currentTheme === 'light') {
+    themeIcon.className = 'fa-solid fa-sun';
+    themeIcon.style.color = '#f59e0b';
+    themeLabel.textContent = 'Day Mode';
+  } else {
+    themeIcon.className = 'fa-solid fa-moon';
+    themeIcon.style.color = '#3b82f6';
+    themeLabel.textContent = 'Night Mode';
+  }
 }
