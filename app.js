@@ -891,17 +891,6 @@ async function updateApproval(id, newStatus, requiredRole) {
     showToast('Network error updating approval status', 'error');
   }
 }
-    if (result.success) {
-      showToast(`Status updated to "${newStatus}" by ${doerName}!`, 'success');
-      loadMetrics();
-      loadTabData(activeTab);
-    } else {
-      showToast(result.error || 'Failed to update approval status', 'error');
-    }
-  } catch (err) {
-    showToast('Network error updating approval status', 'error');
-  }
-}
 
 // ----------------------------------------------------
 // SERVER MODAL & CONFIGURATION HANDLERS
