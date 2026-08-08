@@ -62,6 +62,12 @@ const VERCEL_BACKEND_URL = 'https://mongo-web-page.vercel.app';
 // API BASE URL RESOLUTION
 // ----------------------------------------------------
 async function determineApiUrl() {
+  // Clear any leftover localhost customApiUrl saved on mobile browsers
+  if (customApiUrl && customApiUrl.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    customApiUrl = '';
+    localStorage.removeItem('custom_api_url');
+  }
+
   if (customApiUrl) {
     resolvedApiUrl = customApiUrl.replace(/\/$/, '');
     return resolvedApiUrl;
