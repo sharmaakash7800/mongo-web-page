@@ -833,9 +833,9 @@ body {
 }
 
 /* ==================================================== */
-/* MOBILE & TABLET RESPONSIVE STYLES (Screen < 768px)   */
+/* MOBILE & TABLET RESPONSIVE STYLES (Screen <= 1024px) */
 /* ==================================================== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .app-container {
     flex-direction: column;
   }

@@ -101,7 +101,7 @@ function toggleSidebar(forceState) {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   const mainContent = document.querySelector('.main-content');
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = window.innerWidth <= 1024;
 
   if (isMobile) {
     const isOpen = sidebar.classList.contains('sidebar-mobile-open');
@@ -140,7 +140,7 @@ function setupNavigation() {
       loadTabData(activeTab);
 
       // Auto hide sidebar on mobile after selecting a tab
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth <= 1024) {
         toggleSidebar(false);
       }
     });

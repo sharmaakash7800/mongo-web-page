@@ -824,69 +824,120 @@ body {
   color: #92400e;
 }
 
-/* MOBILE RESPONSIVE ADAPTATIONS */
-@media (max-width: 768px) {
+[data-theme="light"] .data-table th {
+  background-color: #f8fafc;
+}
+
+[data-theme="light"] .data-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* ==================================================== */
+/* MOBILE & TABLET RESPONSIVE STYLES (Screen <= 1024px) */
+/* ==================================================== */
+@media (max-width: 1024px) {
+  .app-container {
+    flex-direction: column;
+  }
+
   .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 270px;
+    height: 100vh;
+    z-index: 1000;
+    border-right: 1px solid var(--border-color);
+    padding: 20px 16px;
     transform: translateX(-100%);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    background-color: var(--bg-sidebar);
   }
 
   .sidebar.sidebar-mobile-open {
-    transform: translateX(0);
+    transform: translateX(0) !important;
+  }
+
+  .brand {
+    padding-bottom: 16px;
+  }
+
+  .nav-menu {
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .nav-item {
+    white-space: normal;
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .sidebar-footer {
+    display: block;
+    margin-top: auto;
   }
 
   .main-content {
     margin-left: 0 !important;
-    padding: 16px;
+    padding: 14px;
+    width: 100%;
   }
 
   .topbar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
+  }
+
+  .topbar-left h1 {
+    font-size: 20px;
+  }
+
+  .topbar-left .subtitle {
+    font-size: 12px;
   }
 
   .topbar-right {
     width: 100%;
+    display: flex;
     flex-wrap: wrap;
+    gap: 8px;
   }
 
   .topbar-right .btn {
-    flex: 1;
+    flex: 1 1 auto;
     justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .metric-card {
+    padding: 14px;
+  }
+
+  .metric-value {
+    font-size: 20px;
   }
 
   .table-toolbar {
     flex-direction: column;
-    gap: 12px;
     align-items: stretch;
-    padding: 12px;
+    gap: 10px;
+    padding: 14px;
   }
 
   .search-box {
     width: 100%;
-  }
-
-  .data-table th, .data-table td {
-    padding: 10px 12px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .action-btn {
-    padding: 8px 6px;
-    font-size: 15px;
-  }
-
-  .modal-card {
-    width: 95%;
-    max-width: 100%;
-    margin: 10px;
-  }
-
-  .modal-body {
-    padding: 16px;
-    gap: 12px;
   }
 }
 
