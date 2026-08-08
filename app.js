@@ -367,8 +367,12 @@ function loadSampleDataFallback(tab) {
 // ----------------------------------------------------
 // TAT & DOER HELPERS
 // ----------------------------------------------------
-function getTATBadgeHtml(createdAt) {
-  if (!createdAt) return `<span class="badge badge-info" title="TAT Clock"><i class="fa-solid fa-stopwatch"></i> TAT: 10m</span>`;
+function getTATBadgeHtml(createdAt, status) {
+  const targetSlaHours = 24; // Target SLA Goal: 24 Hours
+  if (!createdAt) {
+    return `<span class="badge badge-info" title="Target SLA Goal: ${targetSlaHours}h"><i class="fa-solid fa-clock-rotate-left"></i> Target: ${targetSlaHours}h</span>`;
+  }
+
   const start = new Date(createdAt).getTime();
   const now = new Date().getTime();
   const diffMs = Math.max(0, now - start);
@@ -377,24 +381,47 @@ function getTATBadgeHtml(createdAt) {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffHours / 24);
 
-  let label = '';
+  const targetMs = targetSlaHours * 60 * 60 * 1000;
+  const remainingMs = targetMs - diffMs;
+
+  const isCompleted = (status && (status.includes('Dispatched') || status.includes('Issued') || status.includes('Completed')));
+
+  let elapsedStr = '';
   if (diffDays > 0) {
-    label = `${diffDays}d ${diffHours % 24}h`;
+    elapsedStr = `${diffDays}d ${diffHours % 24}h`;
   } else if (diffHours > 0) {
-    label = `${diffHours}h ${diffMins % 60}m`;
+    elapsedStr = `${diffHours}h ${diffMins % 60}m`;
   } else {
-    label = `${diffMins}m`;
+    elapsedStr = `${diffMins}m`;
   }
 
-  let badgeClass = 'badge-success';
-  if (diffHours >= 48) {
-    badgeClass = 'badge-danger';
-    label += ' (Overdue)';
-  } else if (diffHours >= 24) {
-    badgeClass = 'badge-warning';
+  // Case 1: Completed Task
+  if (isCompleted) {
+    return `<span class="badge badge-success" title="Task Completed in ${elapsedStr} (SLA Target: ${targetSlaHours}h)"><i class="fa-solid fa-circle-check"></i> Done in ${elapsedStr} (Target: ${targetSlaHours}h)</span>`;
   }
 
-  return `<span class="badge ${badgeClass}" title="Turnaround Time (Creation to now)"><i class="fa-solid fa-stopwatch"></i> TAT: ${label}</span>`;
+  // Case 2: Overdue Task
+  if (remainingMs <= 0) {
+    const overdueMs = Math.abs(remainingMs);
+    const overdueMins = Math.floor(overdueMs / (1000 * 60));
+    const overdueHours = Math.floor(overdueMins / 60);
+    const overdueDays = Math.floor(overdueHours / 24);
+
+    let overdueStr = '';
+    if (overdueDays > 0) overdueStr = `${overdueDays}d ${overdueHours % 24}h`;
+    else if (overdueHours > 0) overdueStr = `${overdueHours}h ${overdueMins % 60}m`;
+    else overdueStr = `${overdueMins}m`;
+
+    return `<span class="badge badge-danger" title="Overdue! Elapsed: ${elapsedStr} | Target SLA: ${targetSlaHours}h"><i class="fa-solid fa-triangle-exclamation"></i> Overdue by ${overdueStr} (Target: ${targetSlaHours}h)</span>`;
+  } 
+
+  // Case 3: In Progress (Counting down to Target SLA)
+  const remMins = Math.floor(remainingMs / (1000 * 60));
+  const remHours = Math.floor(remMins / 60);
+  let remStr = remHours > 0 ? `${remHours}h ${remMins % 60}m` : `${remMins}m`;
+
+  let badgeClass = remHours < 4 ? 'badge-warning' : 'badge-info';
+  return `<span class="badge ${badgeClass}" title="Elapsed: ${elapsedStr} | Target SLA: ${targetSlaHours} Hours"><i class="fa-solid fa-hourglass-half"></i> ${remStr} left (Target: ${targetSlaHours}h)</span>`;
 }
 
 function getDoerBadgeHtml(item) {
@@ -428,7 +455,7 @@ function renderTable(data) {
         <th>Quantity</th>
         <th>Unit Price (₹)</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -441,7 +468,7 @@ function renderTable(data) {
         <td>${item.quantity} units</td>
         <td><strong>₹${Number(item.unitPrice).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -455,7 +482,7 @@ function renderTable(data) {
         <th>Total Amount (₹)</th>
         <th>Items</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -468,7 +495,7 @@ function renderTable(data) {
         <td><strong>₹${Number(item.totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${item.itemsCount}</td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -482,7 +509,7 @@ function renderTable(data) {
         <th>Destination</th>
         <th>Est. Arrival</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -495,7 +522,7 @@ function renderTable(data) {
         <td>${escapeHtml(item.destination)}</td>
         <td>${escapeHtml(item.estimatedArrival)}</td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -510,7 +537,7 @@ function renderTable(data) {
         <th>Priority</th>
         <th>Est. Cost (₹)</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Workflow Action</th>
       </tr>
     `;
@@ -525,7 +552,7 @@ function renderTable(data) {
         <td><span class="badge ${priorityClass}">${escapeHtml(item.priority)}</span></td>
         <td><strong>₹${Number(item.estimatedCost).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -539,7 +566,7 @@ function renderTable(data) {
         <th>Department</th>
         <th>Details / CTC (₹)</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>HR Workflow Action</th>
       </tr>
     `;
@@ -554,7 +581,7 @@ function renderTable(data) {
         <td>${escapeHtml(item.department)}</td>
         <td>${escapeHtml(item.details)}${amountStr}</td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);

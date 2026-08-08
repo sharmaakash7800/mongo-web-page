@@ -197,7 +197,8 @@ function updateTabHeader() {
     inventory: 'Inventory Collection',
     orders: 'Purchase Orders Collection',
     deliveries: 'Deliveries Collection',
-    requests: 'Purchase Requests Collection'
+    requests: 'Purchase Requests Collection',
+    hr: 'HR & Employee Desk (Leave / Job Offer / Relieving Letter)'
   };
   pageTitle.textContent = titles[activeTab] || 'Data Explorer';
 }
@@ -270,17 +271,20 @@ async function checkSystemStatus() {
 
 async function loadMetrics() {
   try {
-    const [inv, ord, del, req] = await Promise.all([
+    const [inv, ord, del, req, hr] = await Promise.all([
       fetch(getApiEndpoint('/api/inventory')).then(r => r.json()),
       fetch(getApiEndpoint('/api/purchase-orders')).then(r => r.json()),
       fetch(getApiEndpoint('/api/deliveries')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json())
+      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json()),
+      fetch(getApiEndpoint('/api/hr-requests')).then(r => r.json()).catch(() => ({ data: [] }))
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;
     countOrders.textContent = ord.data ? ord.data.length : 0;
     countDeliveries.textContent = del.data ? del.data.length : 0;
     countRequests.textContent = req.data ? req.data.length : 0;
+    const countHREl = document.getElementById('countHR');
+    if (countHREl) countHREl.textContent = hr.data ? hr.data.length : 0;
   } catch (err) {
     console.error('Metrics loading error:', err);
   }
@@ -304,7 +308,8 @@ async function loadTabData(tab) {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
     deliveries: '/api/deliveries',
-    requests: '/api/purchase-requests'
+    requests: '/api/purchase-requests',
+    hr: '/api/hr-requests'
   };
 
   try {
@@ -363,8 +368,12 @@ function loadSampleDataFallback(tab) {
 // ----------------------------------------------------
 // TAT & DOER HELPERS
 // ----------------------------------------------------
-function getTATBadgeHtml(createdAt) {
-  if (!createdAt) return `<span class="badge badge-info" title="TAT Clock"><i class="fa-solid fa-stopwatch"></i> TAT: 10m</span>`;
+function getTATBadgeHtml(createdAt, status) {
+  const targetSlaHours = 24; // Target SLA Goal: 24 Hours
+  if (!createdAt) {
+    return `<span class="badge badge-info" title="Target SLA Goal: ${targetSlaHours}h"><i class="fa-solid fa-clock-rotate-left"></i> Target: ${targetSlaHours}h</span>`;
+  }
+
   const start = new Date(createdAt).getTime();
   const now = new Date().getTime();
   const diffMs = Math.max(0, now - start);
@@ -373,24 +382,47 @@ function getTATBadgeHtml(createdAt) {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffHours / 24);
 
-  let label = '';
+  const targetMs = targetSlaHours * 60 * 60 * 1000;
+  const remainingMs = targetMs - diffMs;
+
+  const isCompleted = (status && (status.includes('Dispatched') || status.includes('Issued') || status.includes('Completed')));
+
+  let elapsedStr = '';
   if (diffDays > 0) {
-    label = `${diffDays}d ${diffHours % 24}h`;
+    elapsedStr = `${diffDays}d ${diffHours % 24}h`;
   } else if (diffHours > 0) {
-    label = `${diffHours}h ${diffMins % 60}m`;
+    elapsedStr = `${diffHours}h ${diffMins % 60}m`;
   } else {
-    label = `${diffMins}m`;
+    elapsedStr = `${diffMins}m`;
   }
 
-  let badgeClass = 'badge-success';
-  if (diffHours >= 48) {
-    badgeClass = 'badge-danger';
-    label += ' (Overdue)';
-  } else if (diffHours >= 24) {
-    badgeClass = 'badge-warning';
+  // Case 1: Completed Task
+  if (isCompleted) {
+    return `<span class="badge badge-success" title="Task Completed in ${elapsedStr} (SLA Target: ${targetSlaHours}h)"><i class="fa-solid fa-circle-check"></i> Done in ${elapsedStr} (Target: ${targetSlaHours}h)</span>`;
   }
 
-  return `<span class="badge ${badgeClass}" title="Turnaround Time (Creation to now)"><i class="fa-solid fa-stopwatch"></i> TAT: ${label}</span>`;
+  // Case 2: Overdue Task
+  if (remainingMs <= 0) {
+    const overdueMs = Math.abs(remainingMs);
+    const overdueMins = Math.floor(overdueMs / (1000 * 60));
+    const overdueHours = Math.floor(overdueMins / 60);
+    const overdueDays = Math.floor(overdueHours / 24);
+
+    let overdueStr = '';
+    if (overdueDays > 0) overdueStr = `${overdueDays}d ${overdueHours % 24}h`;
+    else if (overdueHours > 0) overdueStr = `${overdueHours}h ${overdueMins % 60}m`;
+    else overdueStr = `${overdueMins}m`;
+
+    return `<span class="badge badge-danger" title="Overdue! Elapsed: ${elapsedStr} | Target SLA: ${targetSlaHours}h"><i class="fa-solid fa-triangle-exclamation"></i> Overdue by ${overdueStr} (Target: ${targetSlaHours}h)</span>`;
+  } 
+
+  // Case 3: In Progress (Counting down to Target SLA)
+  const remMins = Math.floor(remainingMs / (1000 * 60));
+  const remHours = Math.floor(remMins / 60);
+  let remStr = remHours > 0 ? `${remHours}h ${remMins % 60}m` : `${remMins}m`;
+
+  let badgeClass = remHours < 4 ? 'badge-warning' : 'badge-info';
+  return `<span class="badge ${badgeClass}" title="Elapsed: ${elapsedStr} | Target SLA: ${targetSlaHours} Hours"><i class="fa-solid fa-hourglass-half"></i> ${remStr} left (Target: ${targetSlaHours}h)</span>`;
 }
 
 function getDoerBadgeHtml(item) {
@@ -437,7 +469,7 @@ function renderTable(data) {
         <th>Quantity</th>
         <th>Unit Price (₹)</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -450,7 +482,7 @@ function renderTable(data) {
         <td>${item.quantity} units</td>
         <td><strong>₹${Number(item.unitPrice).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -464,7 +496,7 @@ function renderTable(data) {
         <th>Total Amount (₹)</th>
         <th>Items</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -477,7 +509,7 @@ function renderTable(data) {
         <td><strong>₹${Number(item.totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${item.itemsCount}</td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -491,7 +523,7 @@ function renderTable(data) {
         <th>Destination</th>
         <th>Est. Arrival</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Approval Workflow</th>
       </tr>
     `;
@@ -504,7 +536,7 @@ function renderTable(data) {
         <td>${escapeHtml(item.destination)}</td>
         <td>${escapeHtml(item.estimatedArrival)}</td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -519,7 +551,7 @@ function renderTable(data) {
         <th>Priority</th>
         <th>Est. Cost (₹)</th>
         <th>Doer</th>
-        <th>TAT</th>
+        <th>Target SLA & TAT</th>
         <th>Workflow Action</th>
       </tr>
     `;
@@ -534,7 +566,36 @@ function renderTable(data) {
         <td><span class="badge ${priorityClass}">${escapeHtml(item.priority)}</span></td>
         <td><strong>₹${Number(item.estimatedCost).toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
         <td>${getDoerBadgeHtml(item)}</td>
-        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+  } else if (activeTab === 'hr') {
+    tableHeader.innerHTML = `
+      <tr>
+        <th>Request Type</th>
+        <th>Employee / Candidate</th>
+        <th>Department</th>
+        <th>Details / CTC (₹)</th>
+        <th>Doer</th>
+        <th>Target SLA & TAT</th>
+        <th>HR Workflow Action</th>
+      </tr>
+    `;
+
+    data.forEach(item => {
+      const tr = document.createElement('tr');
+      const badgeTypeClass = item.requestType.includes('Leave') ? 'badge-warning' : (item.requestType.includes('Offer') ? 'badge-success' : 'badge-info');
+      const amountStr = item.amount ? ` (₹${Number(item.amount).toLocaleString('en-IN')})` : '';
+      tr.innerHTML = `
+        <td><span class="badge ${badgeTypeClass}">${escapeHtml(item.requestType)}</span></td>
+        <td><strong>${escapeHtml(item.employeeName)}</strong> <small style="color:var(--text-muted);">(${escapeHtml(item.employeeId || 'EMP')})</small></td>
+        <td>${escapeHtml(item.department)}</td>
+        <td>${escapeHtml(item.details)}${amountStr}</td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt, item.approvalStatus || item.status)}</td>
         <td>${getApprovalActionButtons(item)}</td>
       `;
       tableBody.appendChild(tr);
@@ -668,6 +729,39 @@ function openRecordModal() {
         <input type="number" step="0.01" name="estimatedCost" class="form-control" value="30000.00">
       </div>
     `;
+  } else if (activeTab === 'hr') {
+    modalTitle.textContent = 'Add HR / Employee Request';
+    modalFormFields.innerHTML = `
+      <div class="form-group">
+        <label>HR Request Type *</label>
+        <select name="requestType" class="form-control" required>
+          <option value="🌴 Leave Request">🌴 Leave Request</option>
+          <option value="💼 Job Offer Letter">💼 Job Offer Letter Request</option>
+          <option value="📜 Relieving Letter">📜 Relieving Letter Request</option>
+          <option value="📄 Experience & Salary Certificate">📄 Experience & Salary Certificate</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Employee / Candidate Name *</label>
+        <input type="text" name="employeeName" class="form-control" placeholder="e.g. Akash Sharma" required>
+      </div>
+      <div class="form-group">
+        <label>Employee ID</label>
+        <input type="text" name="employeeId" class="form-control" value="EMP-${Math.floor(100 + Math.random() * 900)}">
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <input type="text" name="department" class="form-control" value="Operations">
+      </div>
+      <div class="form-group">
+        <label>Details / Reason / Notice Period *</label>
+        <input type="text" name="details" class="form-control" placeholder="e.g. Sick Leave 3 Days (10th-12th Aug) / Designation: Sr Engineer" required>
+      </div>
+      <div class="form-group">
+        <label>Offered CTC / Salary Amount (₹)</label>
+        <input type="number" step="1" name="amount" class="form-control" placeholder="Optional CTC in Rupees e.g. 750000" value="0">
+      </div>
+    `;
   }
 }
 
@@ -685,7 +779,8 @@ async function handleFormSubmit(e) {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
     deliveries: '/api/deliveries',
-    requests: '/api/purchase-requests'
+    requests: '/api/purchase-requests',
+    hr: '/api/hr-requests'
   };
 
   try {
@@ -717,7 +812,8 @@ async function deleteRecord(id) {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
     deliveries: '/api/deliveries',
-    requests: '/api/purchase-requests'
+    requests: '/api/purchase-requests',
+    hr: '/api/hr-requests'
   };
 
   try {
@@ -742,7 +838,7 @@ async function deleteRecord(id) {
 // ----------------------------------------------------
 function getApprovalBadgeHtml(status) {
   const s = status || 'Pending HoD Approval';
-  if (s === 'Approved by HoD' || s === 'HoD Approved (Pending Store)') {
+  if (s === 'Approved by HoD' || s === 'HoD Approved (Pending Store)' || s === 'HoD Approved (Pending HR)') {
     return `<span class="badge badge-info" title="Approved by Department Head"><i class="fa-solid fa-user-check"></i> HoD Approved</span>`;
   } else if (s === 'Dispatched') {
     return `<span class="badge badge-success" title="Store Stock Available & Dispatched"><i class="fa-solid fa-truck-ramp-box"></i> Dispatched</span>`;
@@ -750,6 +846,8 @@ function getApprovalBadgeHtml(status) {
     return `<span class="badge badge-warning" title="Partial Stock Issued + PO Created"><i class="fa-solid fa-boxes-packing"></i> Partial Dispatched</span>`;
   } else if (s === 'Sent to Purchase Team') {
     return `<span class="badge badge-warning" title="Out of Stock - Sent to Procurement"><i class="fa-solid fa-cart-shopping"></i> Purchase Team</span>`;
+  } else if (s.includes('Document Issued')) {
+    return `<span class="badge badge-success" title="HR Document Issued & Closed"><i class="fa-solid fa-file-circle-check"></i> Issued & Closed</span>`;
   } else if (s.includes('Rejected')) {
     return `<span class="badge badge-danger" title="Request Rejected"><i class="fa-solid fa-ban"></i> Rejected</span>`;
   } else {
@@ -765,10 +863,16 @@ function getApprovalActionButtons(item) {
 
   // Stage 1: Pending HoD Approval (Authorized: HoD / Admin)
   if (status === 'Pending HoD Approval' || status === 'Pending Store Check') {
-    buttons += `<button class="btn-wf btn-wf-hod" onclick="updateApproval('${id}', 'HoD Approved (Pending Store)', 'HoD')" title="Approve as Head of Department"><i class="fa-solid fa-user-check"></i> HoD Approve</button>`;
+    const nextStageStatus = activeTab === 'hr' ? 'HoD Approved (Pending HR)' : 'HoD Approved (Pending Store)';
+    buttons += `<button class="btn-wf btn-wf-hod" onclick="updateApproval('${id}', '${nextStageStatus}', 'HoD')" title="Approve as Head of Department"><i class="fa-solid fa-user-check"></i> HoD Approve</button>`;
     buttons += `<button class="btn-wf btn-wf-reject" onclick="updateApproval('${id}', 'Rejected by HoD', 'HoD')" title="Reject Request"><i class="fa-solid fa-xmark"></i> Reject</button>`;
   } 
-  // Stage 2: HoD Approved -> Store Check (Full In Stock, Partial Available, or Out of Stock)
+  // Stage 2 HR: HoD Approved -> HR Manager Action
+  else if (activeTab === 'hr' && (status === 'HoD Approved (Pending HR)' || status.includes('HoD Approved'))) {
+    buttons += `<button class="btn-wf btn-wf-dispatch" onclick="updateApproval('${id}', 'Document Issued & Approved', 'HR Manager')" title="Verify & Issue Document / Approve Request"><i class="fa-solid fa-file-signature"></i> Issue / Approve</button>`;
+    buttons += `<button class="btn-wf btn-wf-reject" onclick="updateApproval('${id}', 'Rejected by HR', 'HR Manager')" title="Reject Request"><i class="fa-solid fa-xmark"></i> Reject</button>`;
+  }
+  // Stage 2 Inventory/Requests: HoD Approved -> Store Check
   else if (status === 'HoD Approved (Pending Store)' || status === 'Approved by Head' || status === 'Store Checked') {
     buttons += `<button class="btn-wf btn-wf-dispatch" onclick="updateApproval('${id}', 'Dispatched', 'Store Manager')" title="100% In Stock -> Dispatch Item"><i class="fa-solid fa-boxes-packing"></i> Full In Stock (Dispatch)</button>`;
     buttons += `<button class="btn-wf btn-wf-purchase" onclick="updateApproval('${id}', 'Partially Dispatched (Stock + PO)', 'Store Manager')" title="Partial Stock -> Issue Stock & Create PO for rest"><i class="fa-solid fa-layer-group"></i> Partial Available</button>`;
@@ -777,6 +881,8 @@ function getApprovalActionButtons(item) {
   // Completed / Forwarded stages
   else if (status === 'Dispatched') {
     buttons += `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Dispatched</span>`;
+  } else if (status.includes('Document Issued')) {
+    buttons += `<span class="badge badge-success"><i class="fa-solid fa-file-circle-check"></i> Issued & Closed</span>`;
   } else if (status.includes('Partially Dispatched')) {
     buttons += `<span class="badge badge-warning"><i class="fa-solid fa-circle-half-stroke"></i> Partial + PO Created</span>`;
   } else if (status === 'Sent to Purchase Team') {
