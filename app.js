@@ -242,13 +242,23 @@ async function checkSystemStatus() {
 }
 
 async function loadMetrics() {
+  const safeFetch = async (endpoint) => {
+    try {
+      const res = await fetch(getApiEndpoint(endpoint));
+      if (!res.ok) return { data: [] };
+      return await res.json();
+    } catch (e) {
+      return { data: [] };
+    }
+  };
+
   try {
     const [inv, ord, del, req, hr] = await Promise.all([
-      fetch(getApiEndpoint('/api/inventory')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-orders')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/deliveries')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/hr-requests')).then(r => r.json()).catch(() => ({ data: [] }))
+      safeFetch('/api/inventory'),
+      safeFetch('/api/purchase-orders'),
+      safeFetch('/api/deliveries'),
+      safeFetch('/api/purchase-requests'),
+      safeFetch('/api/hr-requests')
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;

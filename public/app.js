@@ -102,7 +102,7 @@ function toggleSidebar(forceState) {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   const mainContent = document.querySelector('.main-content');
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = window.innerWidth <= 1024;
 
   if (isMobile) {
     const isOpen = sidebar.classList.contains('sidebar-mobile-open');
@@ -141,7 +141,7 @@ function setupNavigation() {
       loadTabData(activeTab);
 
       // Auto hide sidebar on mobile after selecting a tab
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth <= 1024) {
         toggleSidebar(false);
       }
     });
@@ -243,13 +243,23 @@ async function checkSystemStatus() {
 }
 
 async function loadMetrics() {
+  const safeFetch = async (endpoint) => {
+    try {
+      const res = await fetch(getApiEndpoint(endpoint));
+      if (!res.ok) return { data: [] };
+      return await res.json();
+    } catch (e) {
+      return { data: [] };
+    }
+  };
+
   try {
     const [inv, ord, del, req, hr] = await Promise.all([
-      fetch(getApiEndpoint('/api/inventory')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-orders')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/deliveries')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/hr-requests')).then(r => r.json()).catch(() => ({ data: [] }))
+      safeFetch('/api/inventory'),
+      safeFetch('/api/purchase-orders'),
+      safeFetch('/api/deliveries'),
+      safeFetch('/api/purchase-requests'),
+      safeFetch('/api/hr-requests')
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;
