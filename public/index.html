@@ -75,6 +75,16 @@
           </div>
         </div>
         <div class="topbar-right">
+          <div class="role-selector-wrap" style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 4px 10px;">
+            <i class="fa-solid fa-user-shield" style="color: var(--accent-blue);"></i>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ROLE:</span>
+            <select id="userRoleSelect" onchange="changeUserRole(this.value)" style="background: transparent; border: none; color: var(--text-primary); font-size: 12px; font-weight: 600; outline: none; cursor: pointer;">
+              <option value="HoD">👔 HoD (Head)</option>
+              <option value="Store Manager">📦 Store Manager</option>
+              <option value="Purchase Officer">🛒 Purchase Officer</option>
+              <option value="Admin" selected>👑 Admin (All Access)</option>
+            </select>
+          </div>
           <button class="btn btn-outline" id="btnThemeToggle" onclick="toggleTheme()" title="Toggle Day / Night Mode">
             <i class="fa-solid fa-moon" id="themeIcon"></i> <span id="themeLabel">Night</span>
           </button>

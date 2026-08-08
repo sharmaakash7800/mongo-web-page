@@ -39,6 +39,7 @@ const countRequests = document.getElementById('countRequests');
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initRoleSelector();
   setupNavigation();
   initApp();
 
@@ -694,12 +695,25 @@ async function handleFormSubmit(e) {
   }
 }
 
+// Role Management & Authorization
+let currentUserRole = localStorage.getItem('user_role') || 'Admin';
+
+function initRoleSelector() {
+  const select = document.getElementById('userRoleSelect');
+  if (select) select.value = currentUserRole;
+}
+
+function changeUserRole(role) {
+  currentUserRole = role;
+  localStorage.setItem('user_role', role);
+  showToast(`Switched Active Role to ${role}`, 'success');
+  renderTable(activeData);
+}
+
 // ----------------------------------------------------
-// DELETE RECORD FROM MONGODB
+// DELETE RECORD FROM MONGODB (1-Click, No Browser Confirm Alert)
 // ----------------------------------------------------
 async function deleteRecord(id) {
-  if (!confirm('Are you sure you want to delete this record from MongoDB?')) return;
-
   const endpointMap = {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
@@ -713,7 +727,7 @@ async function deleteRecord(id) {
     });
     const result = await res.json();
     if (result.success) {
-      showToast('Record deleted from MongoDB', 'success');
+      showToast('Record deleted successfully from MongoDB!', 'success');
       loadMetrics();
       loadTabData(activeTab);
     } else {
@@ -725,7 +739,7 @@ async function deleteRecord(id) {
 }
 
 // ----------------------------------------------------
-// MULTI-STAGE APPROVAL WORKFLOW HANDLERS
+// MULTI-STAGE APPROVAL WORKFLOW HANDLERS (No Pop-ups!)
 // ----------------------------------------------------
 function getApprovalBadgeHtml(status) {
   const s = status || 'Pending HoD Approval';
@@ -733,6 +747,8 @@ function getApprovalBadgeHtml(status) {
     return `<span class="badge badge-info" title="Approved by Department Head"><i class="fa-solid fa-user-check"></i> HoD Approved</span>`;
   } else if (s === 'Dispatched') {
     return `<span class="badge badge-success" title="Store Stock Available & Dispatched"><i class="fa-solid fa-truck-ramp-box"></i> Dispatched</span>`;
+  } else if (s.includes('Partially Dispatched')) {
+    return `<span class="badge badge-warning" title="Partial Stock Issued + PO Created"><i class="fa-solid fa-boxes-packing"></i> Partial Dispatched</span>`;
   } else if (s === 'Sent to Purchase Team') {
     return `<span class="badge badge-warning" title="Out of Stock - Sent to Procurement"><i class="fa-solid fa-cart-shopping"></i> Purchase Team</span>`;
   } else if (s.includes('Rejected')) {
@@ -748,34 +764,42 @@ function getApprovalActionButtons(item) {
 
   let buttons = '';
 
-  // Stage 1: Pending HoD Approval
+  // Stage 1: Pending HoD Approval (Authorized: HoD / Admin)
   if (status === 'Pending HoD Approval' || status === 'Pending Store Check') {
     buttons += `<button class="btn-wf btn-wf-hod" onclick="updateApproval('${id}', 'HoD Approved (Pending Store)', 'HoD')" title="Approve as Head of Department"><i class="fa-solid fa-user-check"></i> HoD Approve</button>`;
     buttons += `<button class="btn-wf btn-wf-reject" onclick="updateApproval('${id}', 'Rejected by HoD', 'HoD')" title="Reject Request"><i class="fa-solid fa-xmark"></i> Reject</button>`;
   } 
-  // Stage 2: HoD Approved -> Store Check
+  // Stage 2: HoD Approved -> Store Check (Full In Stock, Partial Available, or Out of Stock)
   else if (status === 'HoD Approved (Pending Store)' || status === 'Approved by Head' || status === 'Store Checked') {
-    buttons += `<button class="btn-wf btn-wf-dispatch" onclick="updateApproval('${id}', 'Dispatched', 'Store Manager')" title="Stock Available -> Dispatch Item"><i class="fa-solid fa-boxes-packing"></i> Dispatch (In Stock)</button>`;
-    buttons += `<button class="btn-wf btn-wf-purchase" onclick="updateApproval('${id}', 'Sent to Purchase Team', 'Store Manager')" title="Out of Stock -> Forward to Purchase Team"><i class="fa-solid fa-cart-shopping"></i> Send to Purchase (Out of Stock)</button>`;
+    buttons += `<button class="btn-wf btn-wf-dispatch" onclick="updateApproval('${id}', 'Dispatched', 'Store Manager')" title="100% In Stock -> Dispatch Item"><i class="fa-solid fa-boxes-packing"></i> Full In Stock (Dispatch)</button>`;
+    buttons += `<button class="btn-wf btn-wf-purchase" onclick="updateApproval('${id}', 'Partially Dispatched (Stock + PO)', 'Store Manager')" title="Partial Stock -> Issue Stock & Create PO for rest"><i class="fa-solid fa-layer-group"></i> Partial Available</button>`;
+    buttons += `<button class="btn-wf btn-wf-reject" onclick="updateApproval('${id}', 'Sent to Purchase Team', 'Store Manager')" title="Out of Stock -> Forward to Purchase Team"><i class="fa-solid fa-cart-shopping"></i> Out of Stock (PO)</button>`;
   }
   // Completed / Forwarded stages
   else if (status === 'Dispatched') {
     buttons += `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Dispatched</span>`;
+  } else if (status.includes('Partially Dispatched')) {
+    buttons += `<span class="badge badge-warning"><i class="fa-solid fa-circle-half-stroke"></i> Partial + PO Created</span>`;
   } else if (status === 'Sent to Purchase Team') {
     buttons += `<span class="badge badge-warning"><i class="fa-solid fa-spinner fa-spin"></i> Sent to Purchase</span>`;
   } else if (status.includes('Rejected')) {
     buttons += `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Rejected</span>`;
   }
 
-  // Delete button
+  // Delete button (1-click)
   buttons += `<button class="action-btn delete-btn" onclick="deleteRecord('${id}')" title="Delete Record"><i class="fa-solid fa-trash"></i></button>`;
 
   return `<div class="workflow-actions">${buttons}</div>`;
 }
 
-async function updateApproval(id, newStatus, defaultRole) {
-  const doerName = prompt(`Enter Doer / User Name for "${newStatus}":`, defaultRole || 'Admin');
-  if (doerName === null) return; // User cancelled prompt
+async function updateApproval(id, newStatus, requiredRole) {
+  // Authorization Check: Particular person/role only
+  if (currentUserRole !== 'Admin' && currentUserRole !== requiredRole) {
+    showToast(`Access Denied! Only "${requiredRole}" or "Admin" role can perform this stage!`, 'error');
+    return;
+  }
+
+  const doerTitle = `${currentUserRole}`;
 
   try {
     const res = await fetch(getApiEndpoint(`/api/approval/${activeTab}/${id}`), {
@@ -783,11 +807,22 @@ async function updateApproval(id, newStatus, defaultRole) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         approvalStatus: newStatus,
-        lastDoer: doerName.trim() || defaultRole || 'User',
-        doerRole: defaultRole || 'Staff'
+        lastDoer: doerTitle,
+        doerRole: requiredRole
       })
     });
     const result = await res.json();
+    if (result.success) {
+      showToast(`Action "${newStatus}" performed by ${doerTitle}!`, 'success');
+      loadMetrics();
+      loadTabData(activeTab);
+    } else {
+      showToast(result.error || 'Failed to update approval status', 'error');
+    }
+  } catch (err) {
+    showToast('Network error updating approval status', 'error');
+  }
+}
     if (result.success) {
       showToast(`Status updated to "${newStatus}" by ${doerName}!`, 'success');
       loadMetrics();

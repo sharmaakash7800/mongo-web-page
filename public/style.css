@@ -497,8 +497,31 @@ body {
 /* TABLE */
 .table-responsive {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: auto !important;
+  overflow-y: hidden;
   min-height: 250px;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Custom Visible Horizontal Scrollbar */
+.table-responsive::-webkit-scrollbar {
+  height: 9px;
+  background-color: var(--bg-sidebar);
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: var(--bg-sidebar);
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa;
 }
 
 .data-table {
