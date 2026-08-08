@@ -549,9 +549,14 @@ body {
 }
 
 .action-btn:hover {
-  color: var(--accent-red);
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
+
+.store-btn:hover { color: var(--accent-blue) !important; background: rgba(59, 130, 246, 0.15) !important; }
+.approve-btn:hover { color: var(--accent-green) !important; background: rgba(16, 185, 129, 0.15) !important; }
+.reject-btn:hover { color: var(--accent-red) !important; background: rgba(239, 68, 68, 0.15) !important; }
+.delete-btn:hover { color: var(--accent-red) !important; background: rgba(239, 68, 68, 0.15) !important; }
 
 /* MODAL */
 .modal-overlay {

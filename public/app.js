@@ -56,6 +56,8 @@ async function initApp() {
   await loadTabData(activeTab);
 }
 
+const VERCEL_BACKEND_URL = 'https://mongo-web-page-d646gmavi-bussiness-team.vercel.app';
+
 // ----------------------------------------------------
 // API BASE URL RESOLUTION
 // ----------------------------------------------------
@@ -65,38 +67,46 @@ async function determineApiUrl() {
     return resolvedApiUrl;
   }
 
-  // 1. Try relative path '/api/status'
+  // 1. Try relative path '/api/status' (when served from same server)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
     const res = await fetch('/api/status', { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
       resolvedApiUrl = '';
       return '';
     }
-  } catch (e) {
-    // Relative fetch failed
-  }
+  } catch (e) {}
 
-  // 2. If hosted on GitHub Pages or non-localhost, check if local server http://localhost:3000 is available
+  // 2. Default to live Vercel Cloud Backend on GitHub Pages / Mobile
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const resVercel = await fetch(`${VERCEL_BACKEND_URL}/api/status`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (resVercel.ok) {
+      resolvedApiUrl = VERCEL_BACKEND_URL;
+      return VERCEL_BACKEND_URL;
+    }
+  } catch (e) {}
+
+  // 3. Fallback to Localhost:3000
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const resLocal = await fetch('http://localhost:3000/api/status', { signal: controller.signal });
       clearTimeout(timeoutId);
       if (resLocal.ok) {
         resolvedApiUrl = 'http://localhost:3000';
         return resolvedApiUrl;
       }
-    } catch (e) {
-      // Localhost backend unreachable
-    }
+    } catch (e) {}
   }
 
-  resolvedApiUrl = '';
-  return '';
+  resolvedApiUrl = VERCEL_BACKEND_URL;
+  return VERCEL_BACKEND_URL;
 }
 
 function getApiEndpoint(path) {
@@ -331,6 +341,7 @@ function renderTable(data) {
         <th>Unit Price</th>
         <th>Location</th>
         <th>Status</th>
+        <th>Approval</th>
         <th>Actions</th>
       </tr>
     `;
@@ -344,7 +355,8 @@ function renderTable(data) {
         <td>$${Number(item.unitPrice).toFixed(2)}</td>
         <td>${escapeHtml(item.location)}</td>
         <td><span class="badge ${item.quantity > 0 ? 'badge-success' : 'badge-danger'}">${escapeHtml(item.status)}</span></td>
-        <td><button class="action-btn" onclick="deleteRecord('${item._id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button></td>
+        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
+        <td>${getApprovalActionButtons(item._id)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -357,6 +369,7 @@ function renderTable(data) {
         <th>Total Amount</th>
         <th>Items Count</th>
         <th>Status</th>
+        <th>Approval</th>
         <th>Actions</th>
       </tr>
     `;
@@ -369,7 +382,8 @@ function renderTable(data) {
         <td>$${Number(item.totalAmount).toFixed(2)}</td>
         <td>${item.itemsCount}</td>
         <td><span class="badge ${item.status === 'Completed' ? 'badge-success' : 'badge-warning'}">${escapeHtml(item.status)}</span></td>
-        <td><button class="action-btn" onclick="deleteRecord('${item._id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button></td>
+        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
+        <td>${getApprovalActionButtons(item._id)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -382,6 +396,7 @@ function renderTable(data) {
         <th>Destination</th>
         <th>Est. Arrival</th>
         <th>Status</th>
+        <th>Approval</th>
         <th>Actions</th>
       </tr>
     `;
@@ -394,7 +409,8 @@ function renderTable(data) {
         <td>${escapeHtml(item.destination)}</td>
         <td>${escapeHtml(item.estimatedArrival)}</td>
         <td><span class="badge badge-info">${escapeHtml(item.status)}</span></td>
-        <td><button class="action-btn" onclick="deleteRecord('${item._id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button></td>
+        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
+        <td>${getApprovalActionButtons(item._id)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -408,6 +424,7 @@ function renderTable(data) {
         <th>Priority</th>
         <th>Est. Cost</th>
         <th>Status</th>
+        <th>Approval</th>
         <th>Actions</th>
       </tr>
     `;
@@ -422,7 +439,8 @@ function renderTable(data) {
         <td><span class="badge ${priorityClass}">${escapeHtml(item.priority)}</span></td>
         <td>$${Number(item.estimatedCost).toFixed(2)}</td>
         <td><span class="badge badge-info">${escapeHtml(item.status)}</span></td>
-        <td><button class="action-btn" onclick="deleteRecord('${item._id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button></td>
+        <td>${getApprovalBadgeHtml(item.approvalStatus)}</td>
+        <td>${getApprovalActionButtons(item._id)}</td>
       `;
       tableBody.appendChild(tr);
     });
@@ -623,6 +641,53 @@ async function deleteRecord(id) {
     }
   } catch (err) {
     showToast('Error deleting record', 'error');
+  }
+}
+
+// ----------------------------------------------------
+// APPROVAL WORKFLOW HANDLERS
+// ----------------------------------------------------
+function getApprovalBadgeHtml(status) {
+  const s = status || 'Pending Store Check';
+  if (s === 'Approved by Head') {
+    return `<span class="badge badge-success" title="Approved by Head"><i class="fa-solid fa-user-check"></i> Head Approved</span>`;
+  } else if (s === 'Store Checked') {
+    return `<span class="badge badge-info" title="Verified by Store"><i class="fa-solid fa-store"></i> Store Verified</span>`;
+  } else if (s === 'Rejected') {
+    return `<span class="badge badge-danger" title="Rejected"><i class="fa-solid fa-ban"></i> Rejected</span>`;
+  } else {
+    return `<span class="badge badge-warning" title="Pending Store Check"><i class="fa-solid fa-clock"></i> Store Pending</span>`;
+  }
+}
+
+function getApprovalActionButtons(id) {
+  return `
+    <div style="display: flex; gap: 4px; align-items: center;">
+      <button class="action-btn store-btn" onclick="updateApproval('${id}', 'Store Checked')" title="Store Check (Verify)"><i class="fa-solid fa-store"></i></button>
+      <button class="action-btn approve-btn" onclick="updateApproval('${id}', 'Approved by Head')" title="Head Approve"><i class="fa-solid fa-circle-check"></i></button>
+      <button class="action-btn reject-btn" onclick="updateApproval('${id}', 'Rejected')" title="Reject"><i class="fa-solid fa-circle-xmark"></i></button>
+      <button class="action-btn delete-btn" onclick="deleteRecord('${id}')" title="Delete from MongoDB"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  `;
+}
+
+async function updateApproval(id, newStatus) {
+  try {
+    const res = await fetch(getApiEndpoint(`/api/approval/${activeTab}/${id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvalStatus: newStatus })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`Status updated to "${newStatus}"`, 'success');
+      loadMetrics();
+      loadTabData(activeTab);
+    } else {
+      showToast(result.error || 'Failed to update approval status', 'error');
+    }
+  } catch (err) {
+    showToast('Network error updating approval status', 'error');
   }
 }
 

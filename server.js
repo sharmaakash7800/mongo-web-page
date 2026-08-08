@@ -79,7 +79,8 @@ const inventorySchema = new mongoose.Schema({
   quantity: { type: Number, required: true, default: 0 },
   unitPrice: { type: Number, default: 0 },
   location: { type: String, default: 'Main Warehouse' },
-  status: { type: String, default: 'In Stock' }
+  status: { type: String, default: 'In Stock' },
+  approvalStatus: { type: String, default: 'Pending Store Check' }
 }, { timestamps: true });
 
 const Inventory = mongoose.model('inventory', inventorySchema, 'inventory');
@@ -91,7 +92,8 @@ const purchaseOrderSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   status: { type: String, default: 'Pending' },
   itemsCount: { type: Number, default: 1 },
-  notes: { type: String, default: '' }
+  notes: { type: String, default: '' },
+  approvalStatus: { type: String, default: 'Pending Store Check' }
 }, { timestamps: true });
 
 const PurchaseOrder = mongoose.model('purchase_orders', purchaseOrderSchema, 'purchase_orders');
@@ -102,7 +104,8 @@ const deliverySchema = new mongoose.Schema({
   carrier: { type: String, required: true },
   destination: { type: String, required: true },
   status: { type: String, default: 'In Transit' },
-  estimatedArrival: { type: String, default: 'Pending' }
+  estimatedArrival: { type: String, default: 'Pending' },
+  approvalStatus: { type: String, default: 'Pending Store Check' }
 }, { timestamps: true });
 
 const Delivery = mongoose.model('deliveries', deliverySchema, 'deliveries');
@@ -114,7 +117,8 @@ const purchaseRequestSchema = new mongoose.Schema({
   department: { type: String, default: 'Operations' },
   priority: { type: String, default: 'Medium' },
   estimatedCost: { type: Number, default: 0 },
-  status: { type: String, default: 'Under Review' }
+  status: { type: String, default: 'Under Review' },
+  approvalStatus: { type: String, default: 'Pending Store Check' }
 }, { timestamps: true });
 
 const PurchaseRequest = mongoose.model('purchase_requests', purchaseRequestSchema, 'purchase_requests');
@@ -285,14 +289,33 @@ app.post('/api/purchase-requests', async (req, res) => {
   }
 });
 
-app.delete('/api/purchase-requests/:id', async (req, res) => {
+// --- STORE CHECK & HEAD APPROVAL WORKFLOW API ---
+app.put('/api/approval/:collection/:id', async (req, res) => {
   try {
     const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'MongoDB Atlas is not connected yet.' });
+      return res.status(400).json({ success: false, error: 'Database not connected' });
     }
-    await PurchaseRequest.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Request deleted successfully' });
+
+    const collectionMap = {
+      inventory: Inventory,
+      orders: PurchaseOrder,
+      'purchase-orders': PurchaseOrder,
+      deliveries: Delivery,
+      requests: PurchaseRequest,
+      'purchase-requests': PurchaseRequest
+    };
+
+    const Model = collectionMap[req.params.collection];
+    if (!Model) return res.status(400).json({ success: false, error: 'Invalid collection' });
+
+    const updated = await Model.findByIdAndUpdate(
+      req.params.id,
+      { approvalStatus: req.body.approvalStatus },
+      { new: true }
+    );
+
+    res.json({ success: true, data: updated, message: `Status updated to ${req.body.approvalStatus}` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
