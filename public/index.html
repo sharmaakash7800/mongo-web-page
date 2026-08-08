@@ -55,14 +55,24 @@
       </div>
     </aside>
 
+    <!-- Sidebar Overlay for Mobile Auto-Hide -->
+    <div class="sidebar-overlay hidden" id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
+
     <!-- Main Content Area -->
     <main class="main-content">
       
       <!-- Top Bar -->
       <header class="topbar">
         <div class="topbar-left">
-          <h1 id="pageTitle">Inventory Management</h1>
-          <p class="subtitle" id="pageSubtitle">Write & Fetch data live from MongoDB Atlas database: <strong>R2D</strong></p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="btn-icon-toggle" id="btnToggleSidebar" onclick="toggleSidebar()" title="Toggle Sidebar Menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <div>
+              <h1 id="pageTitle">Inventory Management</h1>
+              <p class="subtitle" id="pageSubtitle">Write & Fetch data live from MongoDB Atlas database: <strong>R2D</strong></p>
+            </div>
+          </div>
         </div>
         <div class="topbar-right">
           <button class="btn btn-outline" id="btnThemeToggle" onclick="toggleTheme()" title="Toggle Day / Night Mode">

@@ -79,6 +79,11 @@ body {
   bottom: 0;
   left: 0;
   z-index: 100;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed {
+  transform: translateX(-100%);
 }
 
 .brand {
@@ -221,6 +226,41 @@ body {
   flex: 1;
   padding: 32px;
   max-width: 1400px;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content.full-width {
+  margin-left: 0;
+}
+
+.btn-icon-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+.btn-icon-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  z-index: 999;
+  transition: opacity 0.3s ease;
 }
 
 /* TOPBAR */
@@ -777,40 +817,49 @@ body {
   }
 
   .sidebar {
-    width: 100%;
-    position: relative;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    padding: 14px 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 270px;
+    height: 100vh;
+    z-index: 1000;
+    border-right: 1px solid var(--border-color);
+    padding: 20px 16px;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    background-color: var(--bg-sidebar);
+  }
+
+  .sidebar.sidebar-mobile-open {
+    transform: translateX(0) !important;
   }
 
   .brand {
-    padding-bottom: 12px;
+    padding-bottom: 16px;
   }
 
   .nav-menu {
-    flex-direction: row;
-    overflow-x: auto;
+    flex-direction: column;
+    overflow-y: auto;
     gap: 8px;
-    margin-top: 12px;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
+    margin-top: 16px;
   }
 
   .nav-item {
-    white-space: nowrap;
-    padding: 8px 12px;
-    font-size: 13px;
-    border-radius: var(--radius-sm);
+    white-space: normal;
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: var(--radius-md);
   }
 
   .sidebar-footer {
-    display: none;
+    display: block;
+    margin-top: auto;
   }
 
   .main-content {
-    margin-left: 0;
+    margin-left: 0 !important;
     padding: 14px;
     width: 100%;
   }

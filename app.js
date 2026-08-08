@@ -115,6 +115,38 @@ function getApiEndpoint(path) {
 }
 
 // ----------------------------------------------------
+// SIDEBAR TOGGLE & AUTO-HIDE HANDLERS
+// ----------------------------------------------------
+function toggleSidebar(forceState) {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const mainContent = document.querySelector('.main-content');
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    const isOpen = sidebar.classList.contains('sidebar-mobile-open');
+    const newState = forceState !== undefined ? forceState : !isOpen;
+    if (newState) {
+      sidebar.classList.add('sidebar-mobile-open');
+      if (overlay) overlay.classList.remove('hidden');
+    } else {
+      sidebar.classList.remove('sidebar-mobile-open');
+      if (overlay) overlay.classList.add('hidden');
+    }
+  } else {
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    const newState = forceState !== undefined ? !forceState : !isCollapsed;
+    if (newState) {
+      sidebar.classList.add('collapsed');
+      if (mainContent) mainContent.classList.add('full-width');
+    } else {
+      sidebar.classList.remove('collapsed');
+      if (mainContent) mainContent.classList.remove('full-width');
+    }
+  }
+}
+
+// ----------------------------------------------------
 // NAVIGATION & EVENT LISTENERS
 // ----------------------------------------------------
 function setupNavigation() {
@@ -126,6 +158,11 @@ function setupNavigation() {
       activeTab = button.getAttribute('data-tab');
       updateTabHeader();
       loadTabData(activeTab);
+
+      // Auto hide sidebar on mobile after selecting a tab
+      if (window.innerWidth <= 768) {
+        toggleSidebar(false);
+      }
     });
   });
 
