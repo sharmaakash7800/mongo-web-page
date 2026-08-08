@@ -196,7 +196,8 @@ function updateTabHeader() {
     inventory: 'Inventory Collection',
     orders: 'Purchase Orders Collection',
     deliveries: 'Deliveries Collection',
-    requests: 'Purchase Requests Collection'
+    requests: 'Purchase Requests Collection',
+    hr: 'HR & Employee Desk (Leave / Job Offer / Relieving Letter)'
   };
   pageTitle.textContent = titles[activeTab] || 'Data Explorer';
 }
@@ -269,17 +270,20 @@ async function checkSystemStatus() {
 
 async function loadMetrics() {
   try {
-    const [inv, ord, del, req] = await Promise.all([
+    const [inv, ord, del, req, hr] = await Promise.all([
       fetch(getApiEndpoint('/api/inventory')).then(r => r.json()),
       fetch(getApiEndpoint('/api/purchase-orders')).then(r => r.json()),
       fetch(getApiEndpoint('/api/deliveries')).then(r => r.json()),
-      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json())
+      fetch(getApiEndpoint('/api/purchase-requests')).then(r => r.json()),
+      fetch(getApiEndpoint('/api/hr-requests')).then(r => r.json()).catch(() => ({ data: [] }))
     ]);
 
     countInventory.textContent = inv.data ? inv.data.length : 0;
     countOrders.textContent = ord.data ? ord.data.length : 0;
     countDeliveries.textContent = del.data ? del.data.length : 0;
     countRequests.textContent = req.data ? req.data.length : 0;
+    const countHREl = document.getElementById('countHR');
+    if (countHREl) countHREl.textContent = hr.data ? hr.data.length : 0;
   } catch (err) {
     console.error('Metrics loading error:', err);
   }
@@ -303,7 +307,8 @@ async function loadTabData(tab) {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
     deliveries: '/api/deliveries',
-    requests: '/api/purchase-requests'
+    requests: '/api/purchase-requests',
+    hr: '/api/hr-requests'
   };
 
   try {
@@ -525,6 +530,35 @@ function renderTable(data) {
       `;
       tableBody.appendChild(tr);
     });
+
+  } else if (activeTab === 'hr') {
+    tableHeader.innerHTML = `
+      <tr>
+        <th>Request Type</th>
+        <th>Employee / Candidate</th>
+        <th>Department</th>
+        <th>Details / CTC (₹)</th>
+        <th>Doer</th>
+        <th>TAT</th>
+        <th>HR Workflow Action</th>
+      </tr>
+    `;
+
+    data.forEach(item => {
+      const tr = document.createElement('tr');
+      const badgeTypeClass = item.requestType.includes('Leave') ? 'badge-warning' : (item.requestType.includes('Offer') ? 'badge-success' : 'badge-info');
+      const amountStr = item.amount ? ` (₹${Number(item.amount).toLocaleString('en-IN')})` : '';
+      tr.innerHTML = `
+        <td><span class="badge ${badgeTypeClass}">${escapeHtml(item.requestType)}</span></td>
+        <td><strong>${escapeHtml(item.employeeName)}</strong> <small style="color:var(--text-muted);">(${escapeHtml(item.employeeId || 'EMP')})</small></td>
+        <td>${escapeHtml(item.department)}</td>
+        <td>${escapeHtml(item.details)}${amountStr}</td>
+        <td>${getDoerBadgeHtml(item)}</td>
+        <td>${getTATBadgeHtml(item.createdAt)}</td>
+        <td>${getApprovalActionButtons(item)}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
   }
 }
 
@@ -654,6 +688,39 @@ function openRecordModal() {
         <input type="number" step="0.01" name="estimatedCost" class="form-control" value="30000.00">
       </div>
     `;
+  } else if (activeTab === 'hr') {
+    modalTitle.textContent = 'Add HR / Employee Request';
+    modalFormFields.innerHTML = `
+      <div class="form-group">
+        <label>HR Request Type *</label>
+        <select name="requestType" class="form-control" required>
+          <option value="🌴 Leave Request">🌴 Leave Request</option>
+          <option value="💼 Job Offer Letter">💼 Job Offer Letter Request</option>
+          <option value="📜 Relieving Letter">📜 Relieving Letter Request</option>
+          <option value="📄 Experience & Salary Certificate">📄 Experience & Salary Certificate</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Employee / Candidate Name *</label>
+        <input type="text" name="employeeName" class="form-control" placeholder="e.g. Akash Sharma" required>
+      </div>
+      <div class="form-group">
+        <label>Employee ID</label>
+        <input type="text" name="employeeId" class="form-control" value="EMP-${Math.floor(100 + Math.random() * 900)}">
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <input type="text" name="department" class="form-control" value="Operations">
+      </div>
+      <div class="form-group">
+        <label>Details / Reason / Notice Period *</label>
+        <input type="text" name="details" class="form-control" placeholder="e.g. Sick Leave 3 Days (10th-12th Aug) / Designation: Sr Engineer" required>
+      </div>
+      <div class="form-group">
+        <label>Offered CTC / Salary Amount (₹)</label>
+        <input type="number" step="1" name="amount" class="form-control" placeholder="Optional CTC in Rupees e.g. 750000" value="0">
+      </div>
+    `;
   }
 }
 
@@ -671,7 +738,8 @@ async function handleFormSubmit(e) {
     inventory: '/api/inventory',
     orders: '/api/purchase-orders',
     deliveries: '/api/deliveries',
-    requests: '/api/purchase-requests'
+    requests: '/api/purchase-requests',
+    hr: '/api/hr-requests'
   };
 
   try {

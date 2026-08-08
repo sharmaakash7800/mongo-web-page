@@ -127,6 +127,22 @@ const purchaseRequestSchema = new mongoose.Schema({
 
 const PurchaseRequest = mongoose.model('purchase_requests', purchaseRequestSchema, 'purchase_requests');
 
+// 5. HR & Employee Requests Schema (Leave, Job Offer, Relieving Letter)
+const hrRequestSchema = new mongoose.Schema({
+  requestType: { type: String, required: true }, // 'Leave Request', 'Job Offer', 'Relieving Letter', 'Salary Slip'
+  employeeName: { type: String, required: true },
+  employeeId: { type: String, default: 'EMP-101' },
+  department: { type: String, default: 'HR & Operations' },
+  details: { type: String, default: '' },
+  amount: { type: Number, default: 0 }, // Offered CTC / Salary in ₹
+  status: { type: String, default: 'Under Review' },
+  approvalStatus: { type: String, default: 'Pending HoD Approval' },
+  lastDoer: { type: String, default: 'Employee / Candidate' },
+  doerRole: { type: String, default: 'Employee' }
+}, { timestamps: true });
+
+const HRRequest = mongoose.model('hr_requests', hrRequestSchema, 'hr_requests');
+
 
 // ----------------------------------------------------
 // REST API ENDPOINTS
@@ -283,13 +299,54 @@ app.post('/api/purchase-requests', async (req, res) => {
   try {
     const { isConnected } = checkDbStatus();
     if (!isConnected) {
-      return res.status(400).json({ success: false, error: 'Please update your .env file or Vercel Environment Variables with your actual MongoDB Atlas connection password!' });
+      return res.status(400).json({ success: false, error: 'Database not connected' });
     }
     const newRequest = new PurchaseRequest(req.body);
     const saved = await newRequest.save();
     res.status(201).json({ success: true, data: saved });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// --- HR & EMPLOYEE DESK API ---
+app.get('/api/hr-requests', async (req, res) => {
+  try {
+    const { isConnected } = checkDbStatus();
+    if (!isConnected) {
+      return res.json({ success: true, data: [], dbConnected: false });
+    }
+    const hrRequests = await HRRequest.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: hrRequests, dbConnected: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/hr-requests', async (req, res) => {
+  try {
+    const { isConnected } = checkDbStatus();
+    if (!isConnected) {
+      return res.status(400).json({ success: false, error: 'Database not connected' });
+    }
+    const newHrRequest = new HRRequest(req.body);
+    const saved = await newHrRequest.save();
+    res.status(201).json({ success: true, data: saved });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/hr-requests/:id', async (req, res) => {
+  try {
+    const { isConnected } = checkDbStatus();
+    if (!isConnected) {
+      return res.status(400).json({ success: false, error: 'Database not connected' });
+    }
+    await HRRequest.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'HR Request deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -307,7 +364,9 @@ app.put('/api/approval/:collection/:id', async (req, res) => {
       'purchase-orders': PurchaseOrder,
       deliveries: Delivery,
       requests: PurchaseRequest,
-      'purchase-requests': PurchaseRequest
+      'purchase-requests': PurchaseRequest,
+      hr: HRRequest,
+      'hr-requests': HRRequest
     };
 
     const Model = collectionMap[req.params.collection];

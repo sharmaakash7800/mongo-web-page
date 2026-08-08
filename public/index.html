@@ -42,6 +42,9 @@
         <button class="nav-item" data-tab="requests" id="tab-btn-requests">
           <i class="fa-solid fa-clipboard-list"></i> Purchase Requests
         </button>
+        <button class="nav-item" data-tab="hr" id="tab-btn-hr">
+          <i class="fa-solid fa-id-card-clip"></i> HR & Leave Desk
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -80,6 +83,7 @@
             <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ROLE:</span>
             <select id="userRoleSelect" onchange="changeUserRole(this.value)" style="background: transparent; border: none; color: var(--text-primary); font-size: 12px; font-weight: 600; outline: none; cursor: pointer;">
               <option value="HoD">👔 HoD (Head)</option>
+              <option value="HR Manager">💼 HR Manager</option>
               <option value="Store Manager">📦 Store Manager</option>
               <option value="Purchase Officer">🛒 Purchase Officer</option>
               <option value="Admin" selected>👑 Admin (All Access)</option>
@@ -138,6 +142,14 @@
           <div class="metric-details">
             <span class="metric-label">Purchase Requests</span>
             <h3 class="metric-value" id="countRequests">0</h3>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon green" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;"><i class="fa-solid fa-user-tie"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">HR Desk Requests</span>
+            <h3 class="metric-value" id="countHR">0</h3>
           </div>
         </div>
       </section>

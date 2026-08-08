@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>R2D Business Management - MongoDB Atlas Connected</title>
-  <!-- Google Fonts -->
+  <title>R2D Business Portal | MongoDB Atlas Live System</title>
+  
+  <!-- Fonts & Font Awesome Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- FontAwesome Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Styles -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  
-  <!-- Main Container -->
   <div class="app-container">
-    
-    <!-- Sidebar / Brand Navigation -->
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-icon">
@@ -41,6 +40,9 @@
         </button>
         <button class="nav-item" data-tab="requests" id="tab-btn-requests">
           <i class="fa-solid fa-clipboard-list"></i> Purchase Requests
+        </button>
+        <button class="nav-item" data-tab="hr" id="tab-btn-hr">
+          <i class="fa-solid fa-id-card-clip"></i> HR & Leave Desk
         </button>
       </nav>
 
@@ -80,6 +82,7 @@
             <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ROLE:</span>
             <select id="userRoleSelect" onchange="changeUserRole(this.value)" style="background: transparent; border: none; color: var(--text-primary); font-size: 12px; font-weight: 600; outline: none; cursor: pointer;">
               <option value="HoD">👔 HoD (Head)</option>
+              <option value="HR Manager">💼 HR Manager</option>
               <option value="Store Manager">📦 Store Manager</option>
               <option value="Purchase Officer">🛒 Purchase Officer</option>
               <option value="Admin" selected>👑 Admin (All Access)</option>
@@ -140,11 +143,18 @@
             <h3 class="metric-value" id="countRequests">0</h3>
           </div>
         </div>
+
+        <div class="metric-card">
+          <div class="metric-icon green" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;"><i class="fa-solid fa-user-tie"></i></div>
+          <div class="metric-details">
+            <span class="metric-label">HR Desk Requests</span>
+            <h3 class="metric-value" id="countHR">0</h3>
+          </div>
+        </div>
       </section>
 
       <!-- Data Section with Toolbar -->
       <section class="data-container">
-        
         <div class="table-toolbar">
           <div class="search-box">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -155,52 +165,50 @@
           </div>
         </div>
 
-        <!-- Dynamic Data Table -->
+        <!-- Table View -->
         <div class="table-responsive">
           <table class="data-table" id="dataTable">
             <thead id="tableHeader">
-              <!-- Dynamically Populated Header -->
+              <!-- Dynamically populated -->
             </thead>
             <tbody id="tableBody">
-              <!-- Dynamically Populated Rows -->
+              <!-- Dynamically populated -->
             </tbody>
           </table>
+
+          <!-- Empty State -->
           <div class="empty-state hidden" id="emptyState">
-            <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+            <div class="empty-icon">
+              <i class="fa-solid fa-folder-open"></i>
+            </div>
             <h3>No Records Found</h3>
-            <p>Click "Add New Record" to write data directly into your MongoDB database.</p>
+            <p>Database table is empty or no records match your search filter.</p>
           </div>
         </div>
-
       </section>
-
     </main>
-
   </div>
 
   <!-- ADD RECORD MODAL -->
   <div class="modal-overlay hidden" id="recordModal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modalTitle">Add New Inventory Item</h3>
+        <h3 id="modalTitle">Add New Record</h3>
         <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
       </div>
-
       <form id="recordForm">
         <div class="modal-body" id="modalFormFields">
-          <!-- Dynamic Form Fields injected by app.js depending on active tab -->
+          <!-- Dynamically populated per tab -->
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btnSubmitForm">
-            <i class="fa-solid fa-floppy-disk"></i> Save to MongoDB
-          </button>
+          <button type="button" class="btn btn-outline" id="btnCancelModal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save to MongoDB</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- SERVER CONFIGURATION MODAL -->
+  <!-- CONFIGURE SERVER MODAL -->
   <div class="modal-overlay hidden" id="serverModal">
     <div class="modal-card">
       <div class="modal-header">
@@ -208,30 +216,22 @@
         <button class="modal-close" onclick="toggleServerModal(false)"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
-        <p style="margin-bottom: 15px; color: var(--text-secondary); line-height: 1.5;">
+        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5;">
           GitHub Pages hosts static web pages. To connect with live MongoDB Atlas data, specify your Express backend server URL (local or hosted on Render/Vercel).
         </p>
         <div class="form-group">
-          <label style="display:block; margin-bottom: 6px; font-weight:600;">Backend Server Base URL</label>
-          <input type="text" id="inputServerUrl" class="form-control" placeholder="http://localhost:3000 or https://my-app.onrender.com">
-          <small style="color: var(--text-muted); display: block; margin-top: 6px;">
-            Default local backend server: <code>http://localhost:3000</code>
-          </small>
+          <label>Backend Server Base URL</label>
+          <input type="text" id="inputServerUrl" class="form-control" placeholder="http://localhost:3000">
+          <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">Default local backend server: <code>http://localhost:3000</code></small>
         </div>
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-          <button type="button" class="btn btn-outline" style="flex:1" onclick="useLocalhostServer()">
-            <i class="fa-solid fa-laptop"></i> Use Localhost:3000
-          </button>
-          <button type="button" class="btn btn-outline" style="flex:1" onclick="clearServerUrl()">
-            <i class="fa-solid fa-rotate-left"></i> Reset Default
-          </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-outline btn-sm" onclick="useLocalhostServer()"><i class="fa-solid fa-desktop"></i> Use Localhost:3000</button>
+          <button class="btn btn-outline btn-sm" onclick="clearServerUrl()"><i class="fa-solid fa-rotate-left"></i> Reset Default</button>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="toggleServerModal(false)">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="saveServerUrl()">
-          <i class="fa-solid fa-check"></i> Save & Connect
-        </button>
+        <button type="button" class="btn btn-outline" onclick="toggleServerModal(false)">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveServerUrl()"><i class="fa-solid fa-check"></i> Save & Connect</button>
       </div>
     </div>
   </div>
@@ -240,41 +240,40 @@
   <div class="modal-overlay hidden" id="setupModal">
     <div class="modal-card large">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-key"></i> Connect MongoDB Atlas Step-by-Step</h3>
+        <h3><i class="fa-solid fa-key"></i> Connect MongoDB Atlas Live Database</h3>
         <button class="modal-close" onclick="toggleSetupModal(false)"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="modal-body setup-guide">
+      <div class="modal-body">
         <ol class="guide-steps">
           <li>
-            <strong>Go to MongoDB Atlas:</strong> Open <a href="https://cloud.mongodb.com" target="_blank">cloud.mongodb.com</a> and click on your cluster (Cluster0).
+            <strong>Open the <code>.env</code> file in your workspace:</strong>
+            <pre style="background: var(--bg-dark); padding: 10px; border-radius: 6px; margin-top: 6px; border: 1px solid var(--border-color); font-size: 12px; color: var(--accent-green);">MONGODB_URI=mongodb+srv://mis_db_user:&lt;password&gt;@cluster0.cmnpteg.mongodb.net/R2D?retryWrites=true&w=majority</pre>
           </li>
           <li>
-            <strong>Click "Connect":</strong> Select <em>Drivers</em> (Node.js).
+            <strong>Replace <code>&lt;password&gt;</code>:</strong> Put your actual MongoDB database cluster password in place of <code>&lt;password&gt;</code>.
           </li>
           <li>
-            <strong>Copy your Connection String:</strong> It looks like: <br>
-            <code>mongodb+srv://&lt;username&gt;:&lt;password&gt;@cluster0.xxxxx.mongodb.net/R2D?retryWrites=true&w=majority</code>
+            <strong>Start the Express API Server:</strong>
+            Run <code>npm start</code> or <code>node server.js</code> in your terminal.
           </li>
           <li>
-            <strong>Paste into <code>.env</code> file:</strong> Replace <code>&lt;username&gt;</code> and <code>&lt;password&gt;</code> with your database user credentials.
-          </li>
-          <li>
-            <strong>Save & Restart:</strong> Restart your server (<code>npm start</code>) and refresh this webpage!
+            <strong>Refresh this page:</strong> The green status badge will light up and live data will load automatically!
           </li>
         </ol>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary" onclick="toggleSetupModal(false)">Got It</button>
+        <button type="button" class="btn btn-primary" onclick="toggleSetupModal(false)">Got It</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <!-- TOAST NOTIFICATION -->
   <div class="toast hidden" id="toast">
     <i class="fa-solid fa-circle-check" id="toastIcon"></i>
-    <span id="toastMessage">Action completed</span>
+    <span id="toastMessage">Action completed successfully!</span>
   </div>
 
+  <!-- App Script -->
   <script src="app.js"></script>
 </body>
 </html>
